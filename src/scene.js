@@ -162,16 +162,33 @@ export function createScene(canvas) {
   }
 
   // Live animation loop
-  let rafId = null
+  let rafId          = null
+  let paused         = false
+  let timeOffset     = 0      // accumulated seconds of paused time
+  let pauseTimestamp = 0      // performance.now() snapshot when last paused
 
   function tick(time) {
-    const t = time * 0.001
+    const t = time * 0.001 - timeOffset
     uniforms1.uTime.value         = t
     uniforms2.uTime.value         = t
     uniformsStreaks.uTime.value   = t
     uniformsBands.uTime.value     = t
     renderPasses(renderer, rt1, rt2, window.innerWidth, window.innerHeight)
     rafId = requestAnimationFrame(tick)
+  }
+
+  function togglePause() {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId          = null
+      pauseTimestamp = performance.now()
+      paused         = true
+    } else {
+      timeOffset += (performance.now() - pauseTimestamp) * 0.001
+      paused = false
+      rafId  = requestAnimationFrame(tick)
+    }
+    return paused
   }
 
   // Collect active animation speeds for loop-duration calculation
@@ -228,9 +245,11 @@ export function createScene(canvas) {
         onProgress,
       )
 
-      // Resume live animation
-      rafId = requestAnimationFrame(tick)
+      // Resume live animation (only if user hasn't paused during export)
+      if (!paused) rafId = requestAnimationFrame(tick)
       onDone()
     },
+
+    togglePause,
   }
 }

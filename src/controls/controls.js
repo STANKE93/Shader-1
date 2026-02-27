@@ -4,7 +4,7 @@ import * as THREE from 'three'
  * Minimal runtime controls panel.
  * Exposes speed, offset, motion mode, and a multi-stop color ramp for each layer.
  */
-export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration) {
+export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause) {
   const panel = document.createElement('div')
   panel.style.cssText = `
     position: fixed; top: 16px; right: 16px; z-index: 100;
@@ -14,7 +14,22 @@ export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration
     display: flex; flex-direction: column; gap: 10px; min-width: 260px;
   `
 
-  panel.innerHTML = `<strong style="letter-spacing:.08em">COOL SHADEZ</strong>`
+  const header = document.createElement('div')
+  header.style.cssText = 'display:flex;justify-content:space-between;align-items:center'
+  header.innerHTML = `<strong style="letter-spacing:.08em">COOL SHADEZ</strong>`
+
+  const pauseBtn = document.createElement('button')
+  pauseBtn.textContent = '⏸'
+  pauseBtn.style.cssText = `
+    background: none; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;
+    color: #fff; font-size: 14px; cursor: pointer; padding: 1px 7px; line-height: 1.4;
+  `
+  pauseBtn.addEventListener('click', () => {
+    const isPaused = togglePause()
+    pauseBtn.textContent = isPaused ? '▶' : '⏸'
+  })
+  header.appendChild(pauseBtn)
+  panel.appendChild(header)
 
   ;[1, 2].forEach(n => {
     const u = uniforms[`layer${n}`]
