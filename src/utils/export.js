@@ -1,19 +1,32 @@
 import * as THREE from 'three'
 
+// IEC 61966-2-1 piecewise sRGB transfer function.
+function linearToSRGB(c) {
+  return c <= 0.0031308
+    ? c * 12.92
+    : 1.055 * Math.pow(c, 1.0 / 2.4) - 0.055
+}
+
+// 4096-entry LUT: float input quantised to 12-bit precision before the curve
+// is applied — error ≤ 0.4 output units vs. the live path.  The old 256-entry
+// integer LUT applied the curve *after* linear values were already rounded to
+// Uint8, producing errors up to 3 units in dark tones because the sRGB curve
+// is steepest there (slope ≈ 12.92 near black).
+const LUT_N = 4096
+const SRGB_LUT = new Uint8Array(LUT_N)
+for (let i = 0; i < LUT_N; i++) {
+  SRGB_LUT[i] = Math.round(linearToSRGB(i / (LUT_N - 1)) * 255)
+}
+
 /**
  * Renders the scene at target resolution and downloads as a PNG.
  *
- * finalRT is given SRGBColorSpace so Three.js injects the same linearToSRGB()
- * it uses for the live screen pass — applied in float precision inside the
- * shader, before the values are quantised to 8 bits.  The old approach applied
- * a JS integer LUT *after* the values had already been rounded to Uint8, which
- * gave the wrong answer for dark values (e.g. linear 0.003 → Uint8 1 → LUT[1]
- * = 13 instead of the correct 10).  With SRGBColorSpace on finalRT the
- * encoding path is bit-for-bit identical to the live render.
- *
- * readRenderTargetPixels() returns raw framebuffer bytes, so when the shader
- * has already written sRGB-encoded values those bytes are ready to copy
- * straight into ImageData — no further curve application needed.
+ * finalRT uses FloatType so readRenderTargetPixels() returns 32-bit linear
+ * values.  The sRGB transfer function is then applied in JavaScript at float
+ * precision — matching the live renderer's linearToSRGB() GLSL encoding —
+ * without relying on Three.js shader injection, which behaves differently for
+ * ShaderMaterial depending on how outputColorSpace interacts with render
+ * targets.
  *
  * @param {number}   width
  * @param {number}   height
@@ -24,35 +37,33 @@ import * as THREE from 'three'
 export function exportPNG(width, height, label, renderFrame) {
   // No canvas needed — all rendering goes into render targets.
   // alpha: false avoids premultiplied-alpha complications in the WebGL context.
+  // outputColorSpace is intentionally not set: every render goes to a RT whose
+  // texture.colorSpace defaults to NoColorSpace, so Three.js injects no sRGB
+  // encoding into any pass.  We apply the curve ourselves below.
   const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false })
-  renderer.outputColorSpace = THREE.SRGBColorSpace  // match live renderer
   renderer.setPixelRatio(1)
   renderer.setSize(width, height, false)
 
-  // SRGBColorSpace causes Three.js to inject linearToSRGB() into the halftone
-  // fragment shader output — the same GLSL function used for the live screen
-  // pass.  The encoding runs at float precision before the values are written
-  // to the 8-bit target, so there is no quantise-then-encode error.
+  // FloatType preserves full linear precision through to readback.
+  // Requires EXT_color_buffer_float (universally available in WebGL2 on desktop).
   const finalRT = new THREE.WebGLRenderTarget(width, height, {
-    minFilter:  THREE.LinearFilter,
-    magFilter:  THREE.LinearFilter,
-    format:     THREE.RGBAFormat,
-    type:       THREE.UnsignedByteType,
-    colorSpace: THREE.SRGBColorSpace,
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format:    THREE.RGBAFormat,
+    type:      THREE.FloatType,
   })
 
   renderFrame(renderer, finalRT)
 
-  // readRenderTargetPixels returns raw framebuffer bytes.  Because the shader
-  // already encoded to sRGB these are ready to write directly to ImageData.
-  // OpenGL convention: row 0 is the bottom row, so we Y-flip below.
-  const pixels = new Uint8Array(width * height * 4)
-  renderer.readRenderTargetPixels(finalRT, 0, 0, width, height, pixels)
+  // Read back linear float pixel data.
+  // OpenGL convention: row 0 is the bottom row — Y-flipped below.
+  const linear = new Float32Array(width * height * 4)
+  renderer.readRenderTargetPixels(finalRT, 0, 0, width, height, linear)
 
   finalRT.dispose()
   renderer.dispose()
 
-  // Y-flip: OpenGL bottom-first → canvas/PNG top-first.
+  // Apply sRGB transfer + Y-flip in one pass.
   const out = document.createElement('canvas')
   out.width  = width
   out.height = height
@@ -64,10 +75,13 @@ export function exportPNG(width, height, label, renderFrame) {
     for (let col = 0; col < width; col++) {
       const s = (srcRow * width + col) * 4
       const d = (row    * width + col) * 4
-      img.data[d]     = pixels[s]
-      img.data[d + 1] = pixels[s + 1]
-      img.data[d + 2] = pixels[s + 2]
-      img.data[d + 3] = pixels[s + 3]
+      const ri = Math.max(0, Math.min(LUT_N - 1, Math.round(linear[s]     * (LUT_N - 1))))
+      const gi = Math.max(0, Math.min(LUT_N - 1, Math.round(linear[s + 1] * (LUT_N - 1))))
+      const bi = Math.max(0, Math.min(LUT_N - 1, Math.round(linear[s + 2] * (LUT_N - 1))))
+      img.data[d]     = SRGB_LUT[ri]
+      img.data[d + 1] = SRGB_LUT[gi]
+      img.data[d + 2] = SRGB_LUT[bi]
+      img.data[d + 3] = Math.round(Math.max(0, Math.min(1, linear[s + 3])) * 255)
     }
   }
 
