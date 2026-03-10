@@ -21,9 +21,14 @@ export async function exportVideo(canvas, renderFrame, loopDuration, fps, onProg
   const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
     .find(t => MediaRecorder.isTypeSupported(t)) ?? 'video/webm'
 
-  const stream   = canvas.captureStream(fps)
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 15_000_000 })
-  const chunks   = []
+  // captureStream(0): manual frame capture only — no browser auto-sampling timer.
+  // This lets us call requestFrame() once per render for frame-accurate output
+  // at any fps, avoiding the drift between captureStream's internal timer and
+  // our setTimeout loop that causes 60fps exports to appear as a still frame.
+  const stream     = canvas.captureStream(0)
+  const videoTrack = stream.getVideoTracks()[0]
+  const recorder   = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 15_000_000 })
+  const chunks     = []
 
   recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
 
@@ -40,6 +45,7 @@ export async function exportVideo(canvas, renderFrame, loopDuration, fps, onProg
       }
 
       renderFrame(frame * dt)
+      videoTrack.requestFrame()  // capture exactly this rendered frame
       onProgress(frame / totalFrames)
       frame++
 
