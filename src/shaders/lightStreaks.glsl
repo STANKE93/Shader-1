@@ -9,10 +9,13 @@ uniform float uLength;    // domain coverage [0..1]: 0 = point, 1 = continuous b
 uniform float uIntensity; // peak additive brightness
 uniform vec3  uColor;     // highlight tint (linear RGB)
 
-// Burst mode
-uniform bool  uBurstMode;    // false = parallel streaks, true = radial burst
-uniform float uBurstCenterX; // burst origin X in UV space [0..1]
-uniform float uBurstCenterY; // burst origin Y in UV space [0..1]
+// Mode: 0 = parallel, 1 = burst, 2 = vortex, 3 = rings
+uniform int   uMode;
+uniform float uBurstCenterX; // burst/vortex origin X in UV space [0..1]
+uniform float uBurstCenterY; // burst/vortex origin Y in UV space [0..1]
+uniform float uTwist;        // vortex spiral tightness (radians per UV unit of radius)
+
+uniform float uFlicker; // 0 = steady, 1 = full per-lane brightness pulsing
 
 varying vec2 vUv;
 
@@ -21,7 +24,7 @@ void main() {
 
   float alongSigma = uLength * 0.5 + 0.005; // maps [0..1] → sigma [0.005..0.505]
 
-  if (!uBurstMode) {
+  if (uMode == 0) {
     // ─── PARALLEL STREAKS ──────────────────────────────────────────────────
 
     vec2 dir  = vec2(cos(uAngle), sin(uAngle));
@@ -44,32 +47,41 @@ void main() {
     float alongTile   = fract(alongScaled) - 0.5;
 
     float crossGauss = exp(-(acrossTile * acrossTile) / (2.0 * uWidth     * uWidth));
+
     float alongGauss = exp(-(alongTile  * alongTile)  / (2.0 * alongSigma * alongSigma));
+
+    // Per-lane flicker: staggered brightness oscillation
+    float flicker = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.5 + lane * 2.399), uFlicker);
 
     // Radial vignette — fades streaks toward corners
     float vignette = 1.0 - smoothstep(0.3, 0.75, length(vUv - 0.5));
 
-    float brightness = crossGauss * alongGauss * uIntensity * vignette;
+    float brightness = crossGauss * alongGauss * uIntensity * vignette * flicker;
     gl_FragColor = vec4(uColor * brightness, brightness);
 
-  } else {
-    // ─── BURST STREAKS ─────────────────────────────────────────────────────
+  } else if (uMode == 1 || uMode == 2) {
+    // ─── BURST & VORTEX STREAKS ──────────────────────────────────────────
     //
-    // Streaks radiate outward from (uBurstCenterX, uBurstCenterY).
-    // The cross-streak dimension maps to angle (which ray lane) and the
-    // along-streak dimension maps to radius (how far out the glint sits).
-    // All Gaussian parameters carry over: width = angular thinness of each
-    // ray, length = radial extent of each glint blob, spacing = ray density.
-    // LaneJitter now staggers glints radially so rays read as scattered
-    // point-sources rather than a uniform ring.
+    // Both radiate from (uBurstCenterX, uBurstCenterY).
+    // Burst: straight radial rays.
+    // Vortex: rays twist with distance — angle offset = dist * uTwist,
+    // creating spiral arms (galaxy / whirlpool). At uTwist=0 vortex = burst.
 
     vec2  delta = vUv - vec2(uBurstCenterX, uBurstCenterY);
     float dist  = length(delta);
     float angle = atan(delta.y, delta.x); // ∈ [-π, π]
     float t     = uTime * uSpeed + uOffset;
 
-    // Angular lane — which ray. uSpacing = ray lanes per full rotation.
-    float acrossScaled = angle * uSpacing / 6.28318;
+    // Vortex twist: rotate the angular coordinate by an amount proportional
+    // to distance. This curves each ray into a spiral arm.
+    if (uMode == 2) {
+      angle -= dist * uTwist;
+    }
+
+    // Angular lane — which ray. Snap to integer so the 2π atan2 seam
+    // (left side from center) wraps cleanly through fract().
+    float angularLanes = max(round(uSpacing), 1.0);
+    float acrossScaled = angle * angularLanes / 6.28318;
     float lane         = floor(acrossScaled);
     float acrossTile   = fract(acrossScaled) - 0.5; // [-0.5, 0.5] within lane
 
@@ -81,14 +93,50 @@ void main() {
     float alongTile   = fract(alongScaled) - 0.5; // [-0.5, 0.5]
 
     float crossGauss = exp(-(acrossTile * acrossTile) / (2.0 * uWidth     * uWidth));
-    float alongGauss = exp(-(alongTile  * alongTile)  / (2.0 * alongSigma * alongSigma));
+
+    float alongGauss = exp(-(alongTile * alongTile) / (2.0 * alongSigma * alongSigma));
+
+    // Per-lane flicker: staggered brightness oscillation
+    float flickerB = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.5 + lane * 2.399), uFlicker);
 
     // Inner fade: smooth rise from the center singularity where atan2 is
     // undefined and lane assignment is meaningless. 0.05 UV units ≈ 5% of
     // screen width — tight enough to stay invisible at normal viewing distance.
     float innerFade = smoothstep(0.0, 0.05, dist);
 
-    float brightness = crossGauss * alongGauss * uIntensity * innerFade;
+    float brightness = crossGauss * alongGauss * uIntensity * innerFade * flickerB;
+    gl_FragColor = vec4(uColor * brightness, brightness);
+
+  } else if (uMode == 3) {
+    // ─── RINGS ───────────────────────────────────────────────────────────
+    //
+    // Concentric rings expanding outward from (uBurstCenterX, uBurstCenterY).
+    // Rotationally symmetric — no angular tiling, just radial.
+    // uWidth controls ring thickness (radial Gaussian sigma).
+    // uSpacing controls ring density along the radius.
+
+    vec2  delta = vUv - vec2(uBurstCenterX, uBurstCenterY);
+    float dist  = length(delta);
+    float t     = uTime * uSpeed + uOffset;
+
+    // Radial tiling — rings travel outward over time
+    float radScaled = dist * uSpacing - t;
+    float lane      = floor(radScaled);      // which ring
+    float radTile   = fract(radScaled) - 0.5; // [-0.5, 0.5] within ring cell
+
+    // Ring profile: Gaussian cross-section controlled by uWidth
+    float ringGauss = exp(-(radTile * radTile) / (2.0 * uWidth * uWidth));
+
+    // Per-ring flicker: staggered brightness oscillation
+    float flickerR = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.5 + lane * 2.399), uFlicker);
+
+    // Fade rings toward edges so they don't clip hard at the quad boundary
+    float edgeFade = 1.0 - smoothstep(0.35, 0.7, dist);
+
+    // Inner fade from center singularity
+    float innerFade = smoothstep(0.0, 0.03, dist);
+
+    float brightness = ringGauss * uIntensity * edgeFade * innerFade * flickerR;
     gl_FragColor = vec4(uColor * brightness, brightness);
   }
 }

@@ -9,6 +9,9 @@ uniform float     uSoftness;      // edge softness shared by both modes
 uniform float     uIOR;           // index of refraction (1.0 = none, 1.5 = glass)
 uniform float     uThickness;     // [0..1]: flat slab → smooth height-profile lens
 uniform float     uFresnel;       // [0..1]: Fresnel edge attenuation strength
+uniform float     uTilt;          // [0..1]: venetian blind tilt across band (0 = flat, 1 = edge-on)
+uniform float     uTilt2;         // [0..1]: venetian blind tilt along band (forward/backward lean)
+uniform float     uTiltZ;         // [-1..1]: Z normal modulation (steepness gradient across band)
 uniform float     uBevelWidth;    // [0..1]: half-width of bevel highlight in band space
 uniform float     uBevelIntensity;// [0..2]: peak brightness of the bevel glint
 
@@ -65,8 +68,19 @@ void main() {
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
     float thickMask = mix(bandMask, wave, uThickness);
 
+    // Tilt: rotate each band like a venetian blind.
+    // (wave - 0.5) is the signed cross-band position: -0.5..+0.5
+    // uTilt  = tilt around long axis (asymmetric refraction across stripe)
+    // uTilt2 = tilt around short axis (lean forward/backward along stripe)
+    // uTiltZ = Z normal modulation: one edge flat (weak refraction),
+    //          other edge steep (strong refraction)
+    vec2  perp = vec2(-dir.y, dir.x);
+    float crossPos = (wave - 0.5) * 2.0;
+    float tiltNormal = uTilt * crossPos;
+    float tiltNormal2 = uTilt2 * crossPos;
+    float tiltZ = 1.0 + uTiltZ * crossPos;
     float gradMag = cos(phase) * STEEPNESS;
-    vec3  N       = normalize(vec3(-gradMag * dir, 1.0));
+    vec3  N       = normalize(vec3((-gradMag + tiltNormal) * dir + tiltNormal2 * perp, max(tiltZ, 0.05)));
 
     float eta      = 1.0 / max(uIOR, 1.0);
     vec3  incident = vec3(0.0, 0.0, -1.0);

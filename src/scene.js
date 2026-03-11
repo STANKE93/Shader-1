@@ -33,7 +33,10 @@ export function createScene(canvas) {
   //   final halftone → screen pass → SRGBColorSpace (Three.js injects linear→sRGB)
   //   final halftone → export RT pass → LinearSRGBColorSpace (manual LUT in export.js)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setSize(window.innerWidth, window.innerHeight)
+  const cw = () => canvas.clientWidth
+  const ch = () => canvas.clientHeight
+
+  renderer.setSize(cw(), ch(), false)
 
   // Four isolated scenes — one per render pass
   const bgScene       = new THREE.Scene() // pass 1: gradient layers
@@ -49,11 +52,11 @@ export function createScene(canvas) {
     format:    THREE.RGBAFormat,
   })
 
-  let rt1 = makeRT(window.innerWidth, window.innerHeight)
-  let rt2 = makeRT(window.innerWidth, window.innerHeight)
-  let rt3 = makeRT(window.innerWidth, window.innerHeight)
+  let rt1 = makeRT(cw(), ch())
+  let rt2 = makeRT(cw(), ch())
+  let rt3 = makeRT(cw(), ch())
 
-  const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight)
+  const resolution = new THREE.Vector2(cw(), ch())
 
   // --- Layer 1 ---
   const uniforms1 = {
@@ -112,10 +115,12 @@ export function createScene(canvas) {
     uLength:       { value: 0.3 },              // coverage along flow axis (0=point, 1=continuous band)
     uIntensity:    { value: 1.2 },              // bright additive highlights
     uColor:        { value: new THREE.Vector3(0.92, 0.88, 1.0) }, // cool near-white
-    // Burst mode
-    uBurstMode:    { value: false },
+    // Mode: 0 = parallel, 1 = burst, 2 = vortex
+    uMode:         { value: 0 },
     uBurstCenterX: { value: 0.5 },
     uBurstCenterY: { value: 0.5 },
+    uTwist:        { value: 8.0 },    // vortex spiral tightness (radians per UV unit)
+    uFlicker: { value: 0.0 },
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: lightStreaks, uniforms: uniformsStreaks,
@@ -135,6 +140,9 @@ export function createScene(canvas) {
     uIOR:             { value: 1.5 },  // 1.0 = air (no effect), 1.5 = glass
     uThickness:       { value: 0.6 },  // 0 = sharp slab, 1 = smooth height-profile lens
     uFresnel:         { value: 0.65 }, // Fresnel edge attenuation strength
+    uTilt:            { value: 0.0 },  // venetian blind tilt across band (0 = flat, 1 = edge-on)
+    uTilt2:           { value: 0.0 },  // venetian blind tilt along band (forward/backward lean)
+    uTiltZ:           { value: 0.0 },  // Z normal modulation (-1..1): steepness gradient across band
     uBevelWidth:      { value: 0.3 },  // bevel highlight half-width in band space
     uBevelIntensity:  { value: 0.5 },  // bevel glint peak brightness
     // Burst mode
@@ -142,7 +150,7 @@ export function createScene(canvas) {
     uBurstCenterX:    { value: 0.5 },
     uBurstCenterY:    { value: 0.5 },
     uRaySpread:       { value: 6 },    // ray count — integer keeps ±π seam invisible
-    uRayLength:       { value: 0.7 },  // radial extent in UV units
+    uRayLength:       { value: 1.2 },  // radial extent in UV units (always max)
     uRayIntensity:    { value: 0.5 },  // additive brightness of ray interior
   }
   bandsScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
@@ -176,6 +184,7 @@ export function createScene(canvas) {
     uSpacing:      { value: 18.0 },
     uScale:        { value: 0.82 },
     uShadow:       { value: 0.06 },
+    uShape:        { value: 0 },    // 0 = circle, 1 = square
   }
   halftoneScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: halftone, uniforms: uniformsHalftone,
@@ -183,8 +192,8 @@ export function createScene(canvas) {
 
   // Handle resize
   window.addEventListener('resize', () => {
-    const w = window.innerWidth, h = window.innerHeight
-    renderer.setSize(w, h)
+    const w = cw(), h = ch()
+    renderer.setSize(w, h, false)
     resolution.set(w, h)
     rt1.dispose(); rt1 = makeRT(w, h)
     rt2.dispose(); rt2 = makeRT(w, h)
@@ -237,7 +246,7 @@ export function createScene(canvas) {
     uniformsStreaks.uTime.value   = t
     uniformsBands.uTime.value     = t
     uniformsCubes.uTime.value     = t
-    renderPasses(renderer, rt1, rt2, rt3, window.innerWidth, window.innerHeight)
+    renderPasses(renderer, rt1, rt2, rt3, cw(), ch())
     rafId = requestAnimationFrame(tick)
   }
 
@@ -302,7 +311,7 @@ export function createScene(canvas) {
         uniformsBands.uBackground.value    = rt1.texture
         uniformsCubes.uBackground.value    = rt2.texture
         uniformsHalftone.uBackground.value = rt3.texture
-        uniformsHalftone.uResolution.value.set(window.innerWidth, window.innerHeight)
+        uniformsHalftone.uResolution.value.set(cw(), ch())
         offRT1.dispose()
         offRT2.dispose()
         offRT3.dispose()
@@ -324,7 +333,7 @@ export function createScene(canvas) {
           uniformsStreaks.uTime.value = t
           uniformsBands.uTime.value   = t
           uniformsCubes.uTime.value   = t
-          renderPasses(renderer, rt1, rt2, rt3, window.innerWidth, window.innerHeight)
+          renderPasses(renderer, rt1, rt2, rt3, cw(), ch())
         },
         loopDuration,
         fps,

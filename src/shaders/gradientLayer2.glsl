@@ -60,16 +60,14 @@ void main() {
   float pulse;
 
   if (uMode == 1) {
-    // Linear drift: wave bands travelling along uDriftAngle.
-    vec2  dir      = vec2(cos(uDriftAngle), sin(uDriftAngle));
-    vec2  perp     = vec2(-dir.y, dir.x);
-    float proj     = dot(vUv - 0.5, dir);
-    float perpDist = abs(dot(vUv - 0.5, perp));
-
-    pulse = sin(proj * 8.0 - t * 2.0) * 0.5 + 0.5;
-    pulse = clamp(pulse, 0.0, 1.0);
-    float fade = 1.0 - smoothstep(0.2, 0.52, perpDist);
-    pulse *= fade;
+    // Linear drift: project UV onto the drift axis and translate over time.
+    // A primary wave plus a secondary harmonic at 70% frequency adds gradient
+    // richness without chaos. Matches layer 1 behavior.
+    vec2  dir  = vec2(cos(uDriftAngle), sin(uDriftAngle));
+    float proj = dot(vUv, dir);
+    pulse  = sin(proj * 6.28318 + t) * 0.5 + 0.5;
+    pulse += sin(proj * 4.39823 - t * 0.7) * 0.22; // sub-harmonic
+    pulse  = clamp(pulse, 0.0, 1.0);
   } else if (uMode == 2) {
     // Noise: organic gradient driven by animated value noise + liquify domain warp.
     vec2 flowCoord = vUv * uLiquifyScale + uTime * uLiquifySpeed;

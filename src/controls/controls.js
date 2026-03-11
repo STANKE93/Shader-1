@@ -2,6 +2,11 @@ import * as THREE from 'three'
 
 const MAX_STOPS = 8
 
+// ─── UI Registry (for randomize) ────────────────────────────────────────────
+
+const uiRegistry = []
+let _regLayer = null
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 function injectStyles() {
@@ -10,15 +15,14 @@ function injectStyles() {
   s.id = 'cs-styles'
   s.textContent = `
     .cs-panel {
-      position: fixed; top: 16px; right: 16px; z-index: 100;
+      position: fixed; top: 0; right: 0; z-index: 100;
       width: 284px;
-      background: rgba(6,6,6,0.92);
-      backdrop-filter: blur(14px);
-      border: 1px solid rgba(240,200,0,0.12);
-      border-radius: 3px;
+      background: rgba(6,6,6,1);
+      border-left: 1px solid rgba(240,200,0,0.12);
+      border-radius: 0;
       color: #fff;
       font: 12px/1.5 'Courier New', 'Consolas', monospace;
-      max-height: calc(100vh - 32px);
+      max-height: 100vh;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -121,14 +125,28 @@ function injectStyles() {
       cursor: pointer; box-shadow: 0 0 6px rgba(240,200,0,0.4);
     }
 
+    /* Dual slider row — two mini sliders side by side */
+    .cs-dual-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .cs-dual-cell {
+      display: grid;
+      grid-template-columns: auto 1fr 28px;
+      align-items: center; gap: 4px;
+    }
+    .cs-dual-cell .cs-slider-label { font-size: 10px; min-width: 0; }
+    .cs-dual-cell .cs-slider-val { font-size: 10px; }
+
     /* Field row (label + pills) */
     .cs-field-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .cs-field-label { font-size: 11px; color: rgba(255,255,255,0.4); }
 
     /* Pills */
-    .cs-pills { display: flex; gap: 3px; }
+    .cs-pills { display: flex; gap: 3px; flex-wrap: wrap; }
     .cs-pill {
-      padding: 2px 8px; border-radius: 2px;
+      padding: 2px 7px; border-radius: 2px;
       font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
       cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
       background: transparent; color: rgba(255,255,255,0.3);
@@ -238,7 +256,7 @@ function injectStyles() {
 
     /* Preset circles */
     .cs-presets {
-      position: fixed; top: 16px; left: 16px; z-index: 100;
+      position: fixed; top: 42px; left: 42px; z-index: 100;
       display: flex; gap: 8px; align-items: center;
     }
     .cs-preset {
@@ -280,7 +298,7 @@ export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration
   const panel = document.createElement('div')
   panel.className = 'cs-panel'
 
-  panel.appendChild(buildHeader(togglePause))
+  panel.appendChild(buildHeader(togglePause, () => randomizeSettings(uniforms)))
   panel.appendChild(buildLayersSection(uniforms))
   panel.appendChild(buildGeometrySection(uniforms))
   panel.appendChild(buildEffectsSection(uniforms))
@@ -384,18 +402,69 @@ function buildPresets(uniforms) {
   return wrap
 }
 
+// ─── Randomize ───────────────────────────────────────────────────────────────
+
+function randomizeSettings(uniforms) {
+  const layers = ['layer1', 'layer2', 'bands', 'cubes', 'streaks', 'halftone']
+  const activeLayers = new Set(layers.filter(k => uniforms[k].uLayerEnabled.value))
+
+  for (const entry of uiRegistry) {
+    if (!activeLayers.has(entry.layer)) continue
+
+    if (entry.type === 'slider') {
+      const range = entry.max - entry.min
+      const raw = entry.min + Math.random() * range
+      const snapped = Math.round(raw / entry.step) * entry.step
+      const clamped = Math.min(entry.max, Math.max(entry.min, snapped))
+      entry.set(clamped)
+    } else if (entry.type === 'color') {
+      const h = Math.random() * 360
+      const s = 50 + Math.random() * 50
+      const l = 30 + Math.random() * 40
+      const c = new THREE.Color(`hsl(${h}, ${s}%, ${l}%)`)
+      entry.set('#' + c.getHexString())
+    } else if (entry.type === 'ramp') {
+      const count = 2 + Math.floor(Math.random() * 4) // 2–5 stops
+      const stops = []
+      for (let i = 0; i < count; i++) {
+        const pos = i === 0 ? 0 : i === count - 1 ? 1 : Math.random()
+        const h = Math.random() * 360
+        const s = 50 + Math.random() * 50
+        const l = 30 + Math.random() * 40
+        const c = new THREE.Color(`hsl(${h}, ${s}%, ${l}%)`)
+        stops.push({ pos, color: '#' + c.getHexString() })
+      }
+      stops.sort((a, b) => a.pos - b.pos)
+      entry.set(stops)
+    }
+  }
+
+}
+
 // ─── Header ───────────────────────────────────────────────────────────────────
 
-function buildHeader(togglePause) {
+function buildHeader(togglePause, onRandomize) {
   const el = document.createElement('div')
   el.className = 'cs-header'
   el.innerHTML = `<span class="cs-title">COOL SHADEZ</span>`
 
-  const btn = document.createElement('button')
-  btn.className = 'cs-pause-btn'
-  btn.textContent = '⏸'
-  btn.addEventListener('click', () => { btn.textContent = togglePause() ? '▶' : '⏸' })
-  el.appendChild(btn)
+  const btnWrap = document.createElement('div')
+  btnWrap.style.cssText = 'display:flex;gap:5px;'
+
+  const diceBtn = document.createElement('button')
+  diceBtn.className = 'cs-pause-btn'
+  diceBtn.textContent = '\uD83C\uDFB2'
+  diceBtn.title = 'Randomize'
+  diceBtn.addEventListener('click', onRandomize)
+
+  const pauseBtn = document.createElement('button')
+  pauseBtn.className = 'cs-pause-btn'
+  pauseBtn.textContent = '⏸'
+  pauseBtn.addEventListener('click', () => { pauseBtn.textContent = togglePause() ? '▶' : '⏸' })
+
+  btnWrap.appendChild(diceBtn)
+  btnWrap.appendChild(pauseBtn)
+  el.appendChild(btnWrap)
   return el
 }
 
@@ -501,9 +570,59 @@ function makeSlider(label, min, max, value, step, onChange) {
     onChange(v)
   })
 
+  if (_regLayer) {
+    uiRegistry.push({ type: 'slider', layer: _regLayer, min, max, step,
+      set(v) { input.value = v; val.textContent = fmtVal(v, step); onChange(v) }
+    })
+  }
+
   row.appendChild(lbl)
   row.appendChild(input)
   row.appendChild(val)
+  return row
+}
+
+function makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, onChangeB) {
+  const row = document.createElement('div')
+  row.className = 'cs-dual-row'
+
+  function cell(label, value, onChange) {
+    const c = document.createElement('div')
+    c.className = 'cs-dual-cell'
+
+    const lbl = document.createElement('span')
+    lbl.className = 'cs-slider-label'
+    lbl.textContent = label
+
+    const input = document.createElement('input')
+    input.type = 'range'
+    input.className = 'cs-range'
+    input.min = min; input.max = max; input.step = step; input.value = value
+
+    const val = document.createElement('span')
+    val.className = 'cs-slider-val'
+    val.textContent = fmtVal(value, step)
+
+    input.addEventListener('input', () => {
+      const v = parseFloat(input.value)
+      val.textContent = fmtVal(v, step)
+      onChange(v)
+    })
+
+    if (_regLayer) {
+      uiRegistry.push({ type: 'slider', layer: _regLayer, min, max, step,
+        set(v) { input.value = v; val.textContent = fmtVal(v, step); onChange(v) }
+      })
+    }
+
+    c.appendChild(lbl)
+    c.appendChild(input)
+    c.appendChild(val)
+    return c
+  }
+
+  row.appendChild(cell(labelA, valA, onChangeA))
+  row.appendChild(cell(labelB, valB, onChangeB))
   return row
 }
 
@@ -557,6 +676,12 @@ function makeSingleColor(label, uniform) {
     const c = new THREE.Color(input.value)
     uniform.value.set(c.r, c.g, c.b)
   })
+
+  if (_regLayer) {
+    uiRegistry.push({ type: 'color', layer: _regLayer,
+      set(hex) { input.value = hex; const c = new THREE.Color(hex); uniform.value.set(c.r, c.g, c.b) }
+    })
+  }
 
   row.appendChild(lbl)
   row.appendChild(input)
@@ -615,6 +740,16 @@ function makeCompactRamp(initialStops, onRampChange, layerLabel) {
       popover.classList.add('hidden')
     }
   })
+
+  if (_regLayer) {
+    uiRegistry.push({ type: 'ramp', layer: _regLayer,
+      set(newStops) {
+        stops = newStops.map(s => ({ ...s }))
+        bar.style.background = stopsToGradient(stops)
+        onRampChange(stops)
+      }
+    })
+  }
 
   return wrap
 }
@@ -818,12 +953,13 @@ function buildRampPopover(layerLabel, initialStops, onRampChange) {
 
 function buildLayersSection(uniforms) {
   return makeSection('Layers', body => {
-    ;[1, 2].forEach(n => body.appendChild(buildGradientLayerSub(`Layer ${n}`, uniforms[`layer${n}`])))
+    ;[1, 2].forEach(n => body.appendChild(buildGradientLayerSub(`Layer ${n}`, uniforms[`layer${n}`], `layer${n}`)))
   })
 }
 
-function buildGradientLayerSub(label, u) {
+function buildGradientLayerSub(label, u, layerKey) {
   return makeSubsection(label, u, body => {
+    _regLayer = layerKey
     // Motion mode
     const modeRow = document.createElement('div')
     modeRow.className = 'cs-field-row'
@@ -899,6 +1035,7 @@ function buildGradientLayerSub(label, u) {
       adv.appendChild(makeSlider('offset', 0, 6.28, u.uOffset.value, 0.01, v => { u.uOffset.value = v }))
     }))
 
+    _regLayer = null
     syncMode()
   })
 }
@@ -927,6 +1064,7 @@ function buildGeometrySection(uniforms) {
     body.appendChild(tabs)
 
     // Bands panel
+    _regLayer = 'bands'
     const bandsPanel = makeSubsection('Bands', ub, sub => {
 
       // ── Mode pills: Parallel | Burst ──────────────────────────────────────
@@ -943,14 +1081,14 @@ function buildGeometrySection(uniforms) {
       parallelGroup.style.cssText = 'display:flex;flex-direction:column;gap:8px;'
       parallelGroup.appendChild(makeSlider('spacing', 1, 20, ub.uSpacing.value, 0.1, v => { ub.uSpacing.value = v }))
       parallelGroup.appendChild(makeSlider('angle°',  0, 360, Math.round(ub.uAngle.value * 180 / Math.PI), 1, v => { ub.uAngle.value = v * Math.PI / 180 }))
+      parallelGroup.appendChild(makeDualSlider('tilt X', 'tilt Y', 0, 1, ub.uTilt.value, ub.uTilt2.value, 0.01,
+        v => { ub.uTilt.value = v }, v => { ub.uTilt2.value = v }))
+      parallelGroup.appendChild(makeSlider('tilt Z', -1, 1, ub.uTiltZ.value, 0.01, v => { ub.uTiltZ.value = v }))
 
       // Burst-only controls
       const burstGroup = document.createElement('div')
       burstGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
-      burstGroup.appendChild(makeSlider('center x',  0,   1,    ub.uBurstCenterX.value, 0.01, v => { ub.uBurstCenterX.value = v }))
-      burstGroup.appendChild(makeSlider('center y',  0,   1,    ub.uBurstCenterY.value, 0.01, v => { ub.uBurstCenterY.value = v }))
       burstGroup.appendChild(makeSlider('rays',      1,   24,   ub.uRaySpread.value,    1,    v => { ub.uRaySpread.value    = v }))
-      burstGroup.appendChild(makeSlider('length',    0.1, 1.2,  ub.uRayLength.value,    0.01, v => { ub.uRayLength.value    = v }))
       burstGroup.appendChild(makeSlider('intensity', 0,   2,    ub.uRayIntensity.value, 0.01, v => { ub.uRayIntensity.value = v }))
 
       function syncBandsMode() {
@@ -991,9 +1129,11 @@ function buildGeometrySection(uniforms) {
       }))
 
       syncBandsMode()
+      _regLayer = null
     })
 
     // Cubes panel (hidden by default)
+    _regLayer = 'cubes'
     const cubesPanel = makeSubsection('Cubes', uc, sub => {
       sub.appendChild(makeSlider('spacing',       1,    20,  uc.uSpacing.value,      0.1,  v => { uc.uSpacing.value      = v }))
       sub.appendChild(makeSlider('angle°',        0,    360, Math.round(uc.uAngle.value * 180 / Math.PI), 1, v => { uc.uAngle.value = v * Math.PI / 180 }))
@@ -1005,6 +1145,7 @@ function buildGeometrySection(uniforms) {
         adv.appendChild(makeSlider('thickness', 0,    1,   uc.uThickness.value, 0.01, v => { uc.uThickness.value = v }))
         adv.appendChild(makeSlider('fresnel',   0,    1,   uc.uFresnel.value,   0.01, v => { uc.uFresnel.value   = v }))
       }))
+      _regLayer = null
     })
     cubesPanel.style.display = 'none'
 
@@ -1027,11 +1168,13 @@ function buildGeometrySection(uniforms) {
 function buildEffectsSection(uniforms) {
   return makeSection('Effects', body => {
     const u = uniforms.streaks
+    _regLayer = 'streaks'
     body.appendChild(makeSubsection('Light Streaks', u, sub => {
 
-      // ── Mode pills: Parallel | Burst ──────────────────────────────────────
+      // ── Mode pills: Parallel | Rings ──────────────────────────────────────
       const modeRow = document.createElement('div')
       modeRow.className = 'cs-field-row'
+      modeRow.style.cssText = 'flex-direction:column;align-items:stretch;gap:4px;'
       const modeLbl = document.createElement('span')
       modeLbl.className = 'cs-field-label'
       modeLbl.textContent = 'Mode'
@@ -1043,41 +1186,34 @@ function buildEffectsSection(uniforms) {
       parallelGroup.style.cssText = 'display:flex;flex-direction:column;gap:8px;'
       parallelGroup.appendChild(makeSlider('angle°', 0, 360, Math.round(u.uAngle.value * 180 / Math.PI), 1, v => { u.uAngle.value = v * Math.PI / 180 }))
 
-      // Burst-only controls (center x, center y)
-      const burstGroup = document.createElement('div')
-      burstGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
-      burstGroup.appendChild(makeSlider('center x', 0, 1, u.uBurstCenterX.value, 0.01, v => { u.uBurstCenterX.value = v }))
-      burstGroup.appendChild(makeSlider('center y', 0, 1, u.uBurstCenterY.value, 0.01, v => { u.uBurstCenterY.value = v }))
-
       function syncStreaksMode() {
-        const burst = u.uBurstMode.value
-        parallelBtn.classList.toggle('active', !burst)
-        burstBtn.classList.toggle('active', burst)
-        parallelGroup.style.display = burst ? 'none' : 'flex'
-        burstGroup.style.display    = burst ? 'flex' : 'none'
+        const m = u.uMode.value
+        parallelBtn.classList.toggle('active', m === 0)
+        ringsBtn.classList.toggle('active', m === 3)
+        parallelGroup.style.display = m === 0 ? 'flex' : 'none'
       }
 
       const parallelBtn = document.createElement('button')
       parallelBtn.className = 'cs-pill active'
       parallelBtn.textContent = 'Parallel'
-      parallelBtn.addEventListener('click', () => { u.uBurstMode.value = false; syncStreaksMode() })
+      parallelBtn.addEventListener('click', () => { u.uMode.value = 0; syncStreaksMode() })
 
-      const burstBtn = document.createElement('button')
-      burstBtn.className = 'cs-pill'
-      burstBtn.textContent = 'Burst'
-      burstBtn.addEventListener('click', () => { u.uBurstMode.value = true; syncStreaksMode() })
+      const ringsBtn = document.createElement('button')
+      ringsBtn.className = 'cs-pill'
+      ringsBtn.textContent = 'Rings'
+      ringsBtn.addEventListener('click', () => { u.uMode.value = 3; syncStreaksMode() })
 
       modePills.appendChild(parallelBtn)
-      modePills.appendChild(burstBtn)
+      modePills.appendChild(ringsBtn)
       modeRow.appendChild(modeLbl)
       modeRow.appendChild(modePills)
       sub.appendChild(modeRow)
       sub.appendChild(parallelGroup)
-      sub.appendChild(burstGroup)
 
       // Shared controls
       sub.appendChild(makeSlider('speed',     0,    2,   u.uSpeed.value,     0.01,  v => { u.uSpeed.value     = v }))
       sub.appendChild(makeSlider('intensity', 0,    4,   u.uIntensity.value, 0.05,  v => { u.uIntensity.value = v }))
+      sub.appendChild(makeSlider('flicker',  0,    1,   u.uFlicker.value,   0.01,  v => { u.uFlicker.value   = v }))
       sub.appendChild(makeSingleColor('color', u.uColor))
       sub.appendChild(makeAdvanced(adv => {
         adv.appendChild(makeSlider('spacing', 1,    20,  u.uSpacing.value,   0.1,   v => { u.uSpacing.value   = v }))
@@ -1085,6 +1221,7 @@ function buildEffectsSection(uniforms) {
         adv.appendChild(makeSlider('length',  0.05, 1.0, u.uLength.value,    0.01,  v => { u.uLength.value    = v }))
         adv.appendChild(makeSlider('offset',  0,    6.28,u.uOffset.value,    0.01,  v => { u.uOffset.value    = v }))
       }))
+      _regLayer = null
     }))
   })
 }
@@ -1094,12 +1231,44 @@ function buildEffectsSection(uniforms) {
 function buildRenderingSection(uniforms) {
   return makeSection('Rendering', body => {
     const u = uniforms.halftone
+    _regLayer = 'halftone'
     body.appendChild(makeSubsection('Halftone', u, sub => {
+      // Shape pills: Circle | Square
+      const shapeRow = document.createElement('div')
+      shapeRow.className = 'cs-field-row'
+      const shapeLbl = document.createElement('span')
+      shapeLbl.className = 'cs-field-label'
+      shapeLbl.textContent = 'Shape'
+      const shapePills = document.createElement('div')
+      shapePills.className = 'cs-pills'
+
+      const circleBtn = document.createElement('button')
+      circleBtn.className = 'cs-pill active'
+      circleBtn.textContent = 'Circle'
+      circleBtn.addEventListener('click', () => { u.uShape.value = 0; syncShape() })
+
+      const squareBtn = document.createElement('button')
+      squareBtn.className = 'cs-pill'
+      squareBtn.textContent = 'Square'
+      squareBtn.addEventListener('click', () => { u.uShape.value = 1; syncShape() })
+
+      function syncShape() {
+        circleBtn.classList.toggle('active', u.uShape.value === 0)
+        squareBtn.classList.toggle('active', u.uShape.value === 1)
+      }
+
+      shapePills.appendChild(circleBtn)
+      shapePills.appendChild(squareBtn)
+      shapeRow.appendChild(shapeLbl)
+      shapeRow.appendChild(shapePills)
+      sub.appendChild(shapeRow)
+
       sub.appendChild(makeSlider('spacing', 4,   80, u.uSpacing.value, 0.5,  v => { u.uSpacing.value = v }))
       sub.appendChild(makeSlider('scale',   0.1, 1,  u.uScale.value,   0.01, v => { u.uScale.value   = v }))
       sub.appendChild(makeAdvanced(adv => {
         adv.appendChild(makeSlider('shadow', 0, 1, u.uShadow.value, 0.01, v => { u.uShadow.value = v }))
       }))
+      _regLayer = null
     }))
   })
 }
