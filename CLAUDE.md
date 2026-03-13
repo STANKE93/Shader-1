@@ -26,34 +26,36 @@ Do not suggest alternative stacks unless explicitly asked.
 
 ## Architecture
 
-### Render Pipeline (3 passes)
+### Render Pipeline (4 passes)
 
 `scene.js` runs a multi-pass render on every animation frame:
 
 ```
-Pass 1: bgScene      → rt1   (Layer 1 + Layer 2 + Streaks composited)
-Pass 2: bandsScene   → rt2   (Diagonal Bands reads rt1 as uBackground)
-Pass 3: halftoneScene → screen (Halftone reads rt2 as uBackground)
+Pass 1: bgScene       → rt1    (Layer 1 + Layer 2 composited)
+Pass 2: bandsScene    → rt2    (Diagonal Bands reads rt1 as uBackground)
+Pass 3: cubesScene    → rt3    (Cubes reads rt2 as uBackground)
+Pass 4: halftoneScene → screen (Halftone reads rt3 as uBackground)
 ```
 
-`renderPasses(r, bgRT1, bgRT2, w, h, outputRT = null)` is shared between the live loop and both export paths (PNG and video) so all three produce identical output. The optional `outputRT` redirects the final pass to a render target instead of the screen.
+`renderPasses(r, bgRT1, bgRT2, bgRT3, w, h, outputRT = null)` is shared between the live loop and both export paths (PNG and video) so all four produce identical output. The optional `outputRT` redirects the final pass to a render target instead of the screen.
 
 ### Data Flow
 
 ```
 main.js
-  └─ createScene(canvas)  → { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause }
-  └─ createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause)
+  └─ createScene(canvas)  → { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot }
+  └─ createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot)
 ```
 
 `uniforms` object shape:
 ```js
 {
-  layer1:   uniforms1,        // gradient layer 1
-  layer2:   uniforms2,        // gradient layer 2
-  streaks:  uniformsStreaks,  // light streaks (additive highlights)
-  bands:    uniformsBands,    // diagonal bands distortion
-  halftone: uniformsHalftone, // halftone screen
+  layer1:   uniforms1,          // gradient layer 1
+  layer2:   uniforms2,          // gradient layer 2
+  streaks:  uniformsStreaks,    // light streaks (disabled, code preserved)
+  bands:    uniformsBands,      // diagonal bands distortion
+  cubes:    uniformsCubes,      // rounded-rect tile grid distortion
+  halftone: uniformsHalftone,   // halftone screen
 }
 ```
 
@@ -61,65 +63,84 @@ main.js
 
 | Key | File | Scene | Blend | Description |
 |-----|------|-------|-------|-------------|
-| `layer1` | `gradientLayer1.glsl` | `bgScene` | `NormalBlending` (opaque base) | Diagonal sine wave or radial rings |
-| `layer2` | `gradientLayer2.glsl` | `bgScene` | `AdditiveBlending`, transparent | Same modes, overlaid |
-| `streaks` | `lightStreaks.glsl` | `bgScene` | `AdditiveBlending`, transparent | Elongated Gaussian highlights flowing along band direction |
-| `bands` | `diagonalBands.glsl` | `bandsScene` | Reads `rt1` via `uBackground` | IOR-based refraction distortion |
-| `halftone` | `halftone.glsl` | `halftoneScene` | Reads `rt2` via `uBackground` | Dot-grid screen overlay |
+| `layer1` | `gradientLayer1.glsl` | `bgScene` | `NormalBlending` (opaque base) | Animated gradient: radial, linear, or noise mode |
+| `layer2` | `gradientLayer2.glsl` | `bgScene` | `AdditiveBlending`, transparent | Same modes as layer 1, overlaid |
+| `streaks` | `lightStreaks.glsl` | `bgScene` | `AdditiveBlending`, transparent | **Currently disabled** (`uLayerEnabled: false`), UI removed. Shader code preserved for future rework |
+| `bands` | `diagonalBands.glsl` | `bandsScene` | Reads `rt1` via `uBackground` | IOR-based refraction distortion with tilt and tube shape |
+| `cubes` | `cubes.glsl` | `cubesScene` | Reads `rt2` via `uBackground` | Rounded-rect tile grid IOR distortion |
+| `halftone` | `halftone.glsl` | `halftoneScene` | Reads `rt3` via `uBackground` | Dot/square-grid screen overlay |
 
-All layers share `baseVertex.glsl` as the vertex shader. Layers in `bgScene` render in draw order: layer1 → layer2 → streaks. Because `bgScene` is composited into `rt1` before the bands pass, all three are refracted together by the IOR glass effect.
-
-### Uniform Standards
-
-Layers 1 & 2 (animated gradient layers):
-```glsl
-uTime, uLayerEnabled, uSpeed, uOffset, uResolution
-uRampColors[MAX_STOPS]    // flat Float32Array, RGB triplets, padded to 8
-uRampPositions[MAX_STOPS] // sorted 0..1 positions, padded to 8
-uRampCount                // int: number of active stops (2–8)
-uLinearDrift              // bool: true = linear drift, false = radial growth
-uDriftAngle               // float: radians, used in linear drift mode only
-```
-
-Gradient layer shader details:
-- **Linear drift mode**: projects UV onto `uDriftAngle` axis; primary wave `sin(proj * 6.28318 + t)` plus sub-harmonic `sin(proj * 4.39823 - t * 0.7) * 0.22` (70% frequency, 22% amplitude) adds gradient richness without chaos.
-- **Radial mode**: concentric rings from canvas centre; `dist = length(vUv - 0.5) * 2.8`. Smooth falloff via `smoothstep(0.55, 1.35, dist)` fades rings naturally toward edges (`mix(0.5, wave, falloff)`).
-- When `uLayerEnabled = false`, layer 1 outputs `vec4(0)` (black/transparent); layer 2 also outputs `vec4(0)` — AdditiveBlending means zero contribution is correct for both.
-
-Streaks layer:
-```glsl
-uTime, uLayerEnabled, uSpeed, uOffset
-uAngle     // flow direction in radians (keep in sync with bands for alignment)
-uSpacing   // streak tiling frequency — same unit as bands uSpacing
-uWidth     // Gaussian sigma cross-flow, in lane fractions (0.01=razor, 0.2=fat)
-uLength    // domain coverage [0..1]: maps to along-sigma [0..0.5] in tile space;
-           // at 1.0 adjacent Gaussians overlap into a continuous band
-uIntensity // peak additive brightness
-uColor     // vec3 linear RGB, passed as THREE.Vector3
-```
-
-Streaks motion: `proj * uSpacing - (uTime * uSpeed + uOffset) + laneJitter` — streaks travel in the positive `uAngle` direction. Per-lane golden-ratio jitter (`lane * 0.6180339887`) staggers streaks so they read as scattered glints rather than a rigid grid.
-
-`uLength` maps to along-sigma as `uLength * 0.5 + 0.005`. At sigma ≈ 0.5 (uLength = 1.0) the periodic Gaussian sum across adjacent tiles is nearly flat, merging discrete streaks into a solid band.
-
-Streaks include a **radial vignette**: `1.0 - smoothstep(0.3, 0.75, length(vUv - 0.5))` — fades streaks toward the quad corners so they stay centred without hard clipping.
-
-Bands layer: `uBackground, uTime, uLayerEnabled, uSpeed, uOffset, uSpacing, uAngle, uSoftness, uIOR, uThickness, uFresnel`
-
-- `uThickness` [0..1]: blends `bandMask` (sharp slab) → `wave` (smooth height profile). At 1.0 displacement peaks at the crest and tapers to zero at the trough, simulating a true cylindrical lens.
-- `uFresnel` [0..1]: attenuates displacement by `1 - uFresnel * slope²` where `slope = |cos(phase)|`. Slope is 0 at flat crests and 1 at steepest edges — concentrates refraction in the middle of each band. Uses raw phase slope rather than `N.z` because `STEEPNESS = 0.13` keeps `N` within 0.8° of vertical (too small for a visible cosθ variation).
-- `STEEPNESS = 0.13` is a hardcoded artistic constant (not exposed as a uniform). Scales the height-field surface normal to control how curved the band reads as a lens.
-- TIR (total internal reflection) guard: if `refract()` returns `vec3(0)`, falls back to `incident` (straight-through) to prevent black artifacts.
-
-Halftone layer: `uBackground, uLayerEnabled, uResolution, uSpacing, uScale, uShadow`
-(no `uTime` or `uSpeed` — halftone is a static screen applied to the composited image)
-
-- Dot radius is driven by **perceptual luminance**: `lum = dot(bg.rgb, vec3(0.2126, 0.7152, 0.0722))`.
-- Grid is computed in **pixel space** (`vUv * uResolution`) for a uniform grid regardless of aspect ratio.
-- Anti-aliased circle edge: `1.5px` soft band via `smoothstep(radius - 1.5, radius + 1.5, dist)`.
-- Inter-dot gap colour: `bg.rgb * uShadow` (0 = black gaps, 1 = no darkening).
+All layers share `baseVertex.glsl` as the vertex shader.
 
 `MAX_STOPS = 8` is defined in both `scene.js` and `controls.js` — keep in sync if changed.
+
+---
+
+## Feature Keyword Index
+
+Semantic lookup for quickly finding and working on specific features. Each entry lists the feature name, keywords for search, and where to find the code.
+
+### LAYERS — Gradient Layer 1 / Layer 2
+**Keywords**: layer 1, layer 2, gradient, color ramp, radial, linear, noise, drift, rings, liquify, warp, blend mode, additive, opaque
+- Shader: `src/shaders/gradientLayer1.glsl`, `gradientLayer2.glsl`
+- Scene: `scene.js` — `uniforms1`, `uniforms2`
+- Controls: `controls.js` — `buildLayersSection`, `buildGradientLayerSub`
+- Uniforms: `uTime, uLayerEnabled, uSpeed, uOffset, uResolution, uRampColors[8], uRampPositions[8], uRampCount, uMode(int), uDriftAngle, uNoiseScale, uLiquifyStrength, uLiquifyScale, uLiquifySpeed`
+- Modes via `uMode`: **0=Radial** / **1=Linear** (uses `uDriftAngle`, sub-harmonic) / **2=Noise** (value noise + liquify domain warp)
+- Layer 1: `NormalBlending` (opaque base); Layer 2: `AdditiveBlending` (transparent overlay)
+- Color ramp: `stopsFromUniforms` / `applyRamp`; `MAX_STOPS=8`
+
+### GEOMETRY — Bands (Diagonal Bands)
+**Keywords**: bands, diagonal bands, parallel, burst, refraction, IOR, glass, lens, snell, distortion, softness, thickness, fresnel, bevel, tilt, venetian blind, tube shape, cylinder
+- Shader: `src/shaders/diagonalBands.glsl`
+- Scene: `scene.js` — `uniformsBands`, `bandsScene`
+- Controls: `controls.js` — `buildGeometrySection`, bandsPanel (tab 1)
+- Uniforms: `uBackground, uTime, uLayerEnabled, uSpeed, uOffset, uSpacing, uAngle, uSoftness, uIOR, uThickness, uFresnel, uTilt, uTilt2, uTiltZ, uTubeShape, uBevelWidth, uBevelIntensity`
+- Burst mode uniforms: `uBurstMode, uBurstCenterX, uBurstCenterY, uRaySpread, uRayLength, uRayIntensity`
+- **Tilt X** (`uTilt`): venetian blind rotation around long axis — asymmetric refraction across stripe
+- **Tilt Y** (`uTilt2`): lean forward/backward along stripe length (perp axis)
+- **Tilt Z** (`uTiltZ`, range -1..1): Z normal modulation — steepness gradient, one edge flat / other steep
+- **Tube Shape** (`uTubeShape`, bool toggle in Advanced): flat slab vs cylindrical cross-section. Tube replaces sinusoidal `gradMag` with linear `crossPos * STEEPNESS * 3.0` for continuous glass-rod refraction
+- `STEEPNESS = 0.13` hardcoded artistic constant
+- TIR guard: `refract()` returns `vec3(0)` → fallback to `incident`
+
+### GEOMETRY — Cubes (Tile Grid)
+**Keywords**: cubes, tiles, grid, rounded rectangle, SDF, corner radius, square tiles, circular tiles
+- Shader: `src/shaders/cubes.glsl`
+- Scene: `scene.js` — `uniformsCubes`, `cubesScene`
+- Controls: `controls.js` — `buildGeometrySection`, cubesPanel (tab 2, hidden by default)
+- Uniforms: `uBackground, uTime, uLayerEnabled(default false), uSpeed, uOffset, uSpacing, uAngle, uSoftness, uIOR, uThickness, uFresnel, uCornerRadius`
+- **Off by default**; SDF `sdRoundedBox` + analytical gradient; same IOR mechanics as bands
+
+### EFFECTS — Light Streaks (DISABLED)
+**Keywords**: streaks, light streaks, gaussian, glints, highlights, additive, vignette, flicker, parallel streaks, rings
+- **Currently disabled**: `uLayerEnabled: false` in scene.js, UI section removed from controls
+- Shader code preserved in `src/shaders/lightStreaks.glsl` for future rework
+- Modes in shader: 0=parallel, 1=burst, 2=vortex, 3=rings (only parallel + rings were exposed in UI before removal)
+- Scene: `scene.js` — `uniformsStreaks` (mesh still in `bgScene`)
+
+### RENDERING — Halftone
+**Keywords**: halftone, dots, circles, squares, screen, dot grid, luminance, shadow, anti-alias, shape
+- Shader: `src/shaders/halftone.glsl`
+- Scene: `scene.js` — `uniformsHalftone`, `halftoneScene`
+- Controls: `controls.js` — `buildRenderingSection`
+- Uniforms: `uBackground, uLayerEnabled, uResolution, uSpacing, uScale, uShadow, uShape`
+- **Shape toggle** (`uShape`, int): **0=Circle** (Euclidean distance) / **1=Square** (Chebyshev distance `max(|dx|,|dy|)`)
+- Dot radius driven by perceptual luminance; grid in pixel space; 1.5px AA edge
+- No `uTime`/`uSpeed` — static screen effect
+
+### EXPORT — PNG / Video
+**Keywords**: export, png, video, webm, capture, download, sRGB, LUT, color space, loop duration, fps
+- PNG: `src/utils/export.js` — offscreen renderer, FloatType RT, 4096-entry sRGB LUT, Y-flip
+- Video: `src/utils/exportVideo.js` — `captureStream(0)` + `requestFrame()`, MediaRecorder, loopable WebM
+- Controls: `controls.js` — `buildExportSection`
+
+### UI — Controls Panel
+**Keywords**: controls, panel, slider, color picker, ramp, pills, toggle, presets, advanced, dual slider, section
+- File: `src/controls/controls.js`
+- Helpers: `makeSlider`, `makeDualSlider`, `makeSingleColor`, `makeColorRamp`, `makeToggle`, `makeAdvanced`
+- Panel sections (top to bottom): Layers → Geometry → Rendering → Export
+- `makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, onChangeB)` — two compact sliders side by side (used for tilt X/Y)
 
 ### Pause / Play
 
@@ -156,7 +177,7 @@ During video export, the live `requestAnimationFrame` loop is cancelled manually
 
 `src/controls/controls.js` builds and injects a DOM panel (`position: fixed`) with sliders and pickers bound directly to `uniforms.*` values. No state layer — everything mutates uniforms in-place.
 
-Panel section order: LAYER 1 → LAYER 2 → DIAGONAL BANDS → LIGHT STREAKS → HALFTONE → EXPORT VIDEO → EXPORT PNG.
+Panel section order: LAYERS (Layer 1 / Layer 2) → GEOMETRY (Bands / Cubes tabs) → RENDERING (Halftone) → EXPORT.
 
 Header: "COOL SHADEZ" title + pause/play button (⏸/▶).
 

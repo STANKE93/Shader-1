@@ -3,7 +3,6 @@ import baseVertex     from './shaders/baseVertex.glsl'
 import gradientLayer1 from './shaders/gradientLayer1.glsl'
 import gradientLayer2 from './shaders/gradientLayer2.glsl'
 import diagonalBands  from './shaders/diagonalBands.glsl'
-import cubesShader    from './shaders/cubes.glsl'
 import lightStreaks   from './shaders/lightStreaks.glsl'
 import halftone       from './shaders/halftone.glsl'
 import { exportPNG }        from './utils/export.js'
@@ -36,13 +35,79 @@ export function createScene(canvas) {
   const cw = () => canvas.clientWidth
   const ch = () => canvas.clientHeight
 
+  // --- Aspect ratio control ---
+  let aspectRatio = null  // null = free (fill available space), else numeric w/h
+
+  function resizeCanvas() {
+    const containerW = window.innerWidth - 30 - 284
+    const containerH = window.innerHeight - 60
+    let w, h, left, top
+
+    if (aspectRatio === null) {
+      w = containerW; h = containerH; left = 30; top = 30
+    } else {
+      if (containerW / containerH > aspectRatio) {
+        // pillarbox — container is wider than needed
+        h = containerH
+        w = Math.round(h * aspectRatio)
+      } else {
+        // letterbox — container is taller than needed
+        w = containerW
+        h = Math.round(w / aspectRatio)
+      }
+      left = 30 + Math.round((containerW - w) / 2)
+      top  = 30 + Math.round((containerH - h) / 2)
+    }
+
+    canvas.style.width  = w + 'px'
+    canvas.style.height = h + 'px'
+    canvas.style.left   = left + 'px'
+    canvas.style.top    = top + 'px'
+
+    // Update frame overlay to match canvas bounds
+    const frame = document.querySelector('.cs-app-frame')
+    if (frame) {
+      frame.style.left   = left + 'px'
+      frame.style.top    = top + 'px'
+      frame.style.right  = 'auto'
+      frame.style.bottom = 'auto'
+      frame.style.width  = w + 'px'
+      frame.style.height = h + 'px'
+    }
+
+    renderer.setSize(w, h, false)
+    resolution.set(w, h)
+    rt1.dispose(); rt1 = makeRT(w, h)
+    rt2.dispose(); rt2 = makeRT(w, h)
+    uniformsBands.uBackground.value    = rt1.texture
+    uniformsHalftone.uBackground.value = rt2.texture
+    uniformsHalftone.uResolution.value.set(w, h)
+  }
+
+  function setAspectRatio(ratio) {
+    aspectRatio = ratio
+    resizeCanvas()
+  }
+
+  // --- Export dimensions from aspect ratio ---
+  const EXPORT_TIERS = { 'HD': 1920, '4K': 3840, '5K': 5120 }
+
+  function exportDimensions(tier) {
+    const longer = EXPORT_TIERS[tier]
+    const ratio = aspectRatio ?? (cw() / ch())
+    if (ratio >= 1) {
+      return [longer, Math.round(longer / ratio)]
+    } else {
+      return [Math.round(longer * ratio), longer]
+    }
+  }
+
   renderer.setSize(cw(), ch(), false)
 
-  // Four isolated scenes — one per render pass
+  // Three isolated scenes — one per render pass
   const bgScene       = new THREE.Scene() // pass 1: gradient layers
   const bandsScene    = new THREE.Scene() // pass 2: diagonal bands distortion
-  const cubesScene    = new THREE.Scene() // pass 3: tile grid distortion
-  const halftoneScene = new THREE.Scene() // pass 4: halftone screen
+  const halftoneScene = new THREE.Scene() // pass 3: halftone screen
 
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
 
@@ -54,7 +119,6 @@ export function createScene(canvas) {
 
   let rt1 = makeRT(cw(), ch())
   let rt2 = makeRT(cw(), ch())
-  let rt3 = makeRT(cw(), ch())
 
   const resolution = new THREE.Vector2(cw(), ch())
 
@@ -70,10 +134,15 @@ export function createScene(canvas) {
     uResolution:    { value: resolution },
     uMode:             { value: 1 },               // 0=radial, 1=linear, 2=noise
     uDriftAngle:       { value: Math.PI * 0.25 }, // 45° diagonal (linear mode only)
-    uNoiseScale:       { value: 3.0 },            // noise patch frequency (noise mode only)
-    uLiquifyStrength:  { value: 0.25 },           // domain-warp magnitude in UV units
-    uLiquifyScale:     { value: 1.5 },            // flow field spatial frequency (coarser than noise)
-    uLiquifySpeed:     { value: 0.12 },           // flow field drift rate (independent of uSpeed)
+    uNoiseScale:       { value: 2.0 },            // noise patch frequency (noise mode only)
+    uDetail:           { value: 2.0 },            // Musgrave octave count (1–3)
+    uDimension:        { value: 1.5 },            // fractal dimension H (0.5–2, higher = smoother)
+    uNoiseDepth:       { value: 0.0 },            // emboss lighting intensity (0 = flat)
+    uLiquifyStrength:  { value: 0.15 },           // domain-warp magnitude in UV units
+    uLiquifyScale:     { value: 1.2 },            // flow field spatial frequency (coarser than noise)
+    uLiquifySpeed:     { value: 0.08 },           // flow field drift rate (independent of uSpeed)
+    uSweepSeam:        { value: 0.0 },            // sweep back-seam softness (0 = sharp, 1 = soft)
+    uSweepCenter:      { value: 0.0 },            // center blur radius (0 = sharp, 1 = soft)
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: gradientLayer1, uniforms: uniforms1,
@@ -91,10 +160,15 @@ export function createScene(canvas) {
     uResolution:    { value: resolution },
     uMode:             { value: 0 },     // 0=radial, 1=linear, 2=noise
     uDriftAngle:       { value: 0.0 },  // rightward (linear mode only)
-    uNoiseScale:       { value: 3.0 },  // noise patch frequency (noise mode only)
-    uLiquifyStrength:  { value: 0.25 }, // domain-warp magnitude in UV units
-    uLiquifyScale:     { value: 1.5 },  // flow field spatial frequency
-    uLiquifySpeed:     { value: 0.12 }, // flow field drift rate
+    uNoiseScale:       { value: 2.0 },  // noise patch frequency (noise mode only)
+    uDetail:           { value: 2.0 },  // Musgrave octave count (1–3)
+    uDimension:        { value: 1.5 },  // fractal dimension H (0.5–2, higher = smoother)
+    uNoiseDepth:       { value: 0.0 },  // emboss lighting intensity (0 = flat)
+    uLiquifyStrength:  { value: 0.15 }, // domain-warp magnitude in UV units
+    uLiquifyScale:     { value: 1.2 },  // flow field spatial frequency
+    uLiquifySpeed:     { value: 0.08 }, // flow field drift rate
+    uSweepSeam:        { value: 0.0 },  // sweep back-seam softness (0 = sharp, 1 = soft)
+    uSweepCenter:      { value: 0.0 },  // center blur radius (0 = sharp, 1 = soft)
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: gradientLayer2, uniforms: uniforms2,
@@ -106,7 +180,7 @@ export function createScene(canvas) {
   // Placed in bgScene so the bands IOR pass refracts them like the gradients beneath.
   const uniformsStreaks = {
     uTime:         { value: 0 },
-    uLayerEnabled: { value: true },
+    uLayerEnabled: { value: false },
     uSpeed:        { value: 0.5 },
     uOffset:       { value: 0.0 },
     uAngle:        { value: Math.PI * 0.25 },   // 45° — matches bands default
@@ -143,10 +217,15 @@ export function createScene(canvas) {
     uTilt:            { value: 0.0 },  // venetian blind tilt across band (0 = flat, 1 = edge-on)
     uTilt2:           { value: 0.0 },  // venetian blind tilt along band (forward/backward lean)
     uTiltZ:           { value: 0.0 },  // Z normal modulation (-1..1): steepness gradient across band
+    uBandShape:       { value: 0 },     // 0 = flat slab, 1 = tube (cylindrical), 2 = fin (tapered ridge)
     uBevelWidth:      { value: 0.3 },  // bevel highlight half-width in band space
     uBevelIntensity:  { value: 0.5 },  // bevel glint peak brightness
-    // Burst mode
-    uBurstMode:       { value: false },
+    uTintColor:       { value: new THREE.Vector3(1.0, 1.0, 1.0) }, // tinted glass color (linear RGB)
+    uTintStrength:    { value: 0.0 },  // tint intensity (0 = clear glass)
+    uStep:            { value: 1 },    // 1 = band + gap, 2 = doubled (no gap)
+    uDistort:         { value: 0.0 },  // [0..1]: noise-based band distortion
+    // Mode: 0 = parallel, 1 = burst
+    uBandsMode:       { value: 0 },
     uBurstCenterX:    { value: 0.5 },
     uBurstCenterY:    { value: 0.5 },
     uRaySpread:       { value: 6 },    // ray count — integer keeps ±π seam invisible
@@ -157,28 +236,9 @@ export function createScene(canvas) {
     vertexShader: baseVertex, fragmentShader: diagonalBands, uniforms: uniformsBands,
   })))
 
-  // --- Layer 4: cubes tile grid ---
-  const uniformsCubes = {
-    uBackground:   { value: rt2.texture },
-    uTime:         { value: 0 },
-    uLayerEnabled: { value: false },  // off by default; enable in controls
-    uSpeed:        { value: 0.1 },
-    uOffset:       { value: 0.0 },
-    uSpacing:      { value: 4.0 },
-    uAngle:        { value: Math.PI * 0.25 },
-    uSoftness:     { value: 0.3 },
-    uIOR:          { value: 1.5 },
-    uThickness:    { value: 0.5 },
-    uFresnel:      { value: 0.5 },
-    uCornerRadius: { value: 0.3 },
-  }
-  cubesScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
-    vertexShader: baseVertex, fragmentShader: cubesShader, uniforms: uniformsCubes,
-  })))
-
-  // --- Layer 5: halftone screen ---
+  // --- Layer 4: halftone screen ---
   const uniformsHalftone = {
-    uBackground:   { value: rt3.texture },
+    uBackground:   { value: rt2.texture },
     uLayerEnabled: { value: true },
     uResolution:   { value: resolution.clone() },
     uSpacing:      { value: 18.0 },
@@ -191,40 +251,28 @@ export function createScene(canvas) {
   })))
 
   // Handle resize
-  window.addEventListener('resize', () => {
-    const w = cw(), h = ch()
-    renderer.setSize(w, h, false)
-    resolution.set(w, h)
-    rt1.dispose(); rt1 = makeRT(w, h)
-    rt2.dispose(); rt2 = makeRT(w, h)
-    rt3.dispose(); rt3 = makeRT(w, h)
-    uniformsBands.uBackground.value    = rt1.texture
-    uniformsCubes.uBackground.value    = rt2.texture
-    uniformsHalftone.uBackground.value = rt3.texture
-    uniformsHalftone.uResolution.value.set(w, h)
-  })
+  window.addEventListener('resize', () => resizeCanvas())
+  resizeCanvas()  // initial sizing (sets canvas CSS, RTs, resolution)
 
   // Multi-pass render — used by both live tick and exports.
   //
   // Color space strategy:
-  //   Intermediate passes (bgRT1, bgRT2, bgRT3): always LinearSRGBColorSpace so
+  //   Intermediate passes (bgRT1, bgRT2): always LinearSRGBColorSpace so
   //   Three.js injects NO sRGB encoding into those shaders. Textures sampled from
   //   these RTs have NoColorSpace (default), so they are read as raw linear values.
   //   Keeping everything linear through the chain ensures correct blending math.
   //
   //   Final pass → null (screen):  SRGBColorSpace — Three.js injects linear→sRGB.
   //   Final pass → RT (export):    LinearSRGBColorSpace — manual LUT in export.js.
-  function renderPasses(r, bgRT1, bgRT2, bgRT3, w, h, outputRT = null) {
+  function renderPasses(r, bgRT1, bgRT2, w, h, outputRT = null) {
     uniformsBands.uBackground.value    = bgRT1.texture
-    uniformsCubes.uBackground.value    = bgRT2.texture
-    uniformsHalftone.uBackground.value = bgRT3.texture
+    uniformsHalftone.uBackground.value = bgRT2.texture
     uniformsHalftone.uResolution.value.set(w, h)
 
     // Intermediate passes — linear throughout, no encoding injected
     r.outputColorSpace = THREE.LinearSRGBColorSpace
     r.setRenderTarget(bgRT1);    r.render(bgScene, camera)
     r.setRenderTarget(bgRT2);    r.render(bandsScene, camera)
-    r.setRenderTarget(bgRT3);    r.render(cubesScene, camera)
 
     // Final pass — sRGB only when writing to screen, linear for export RT readback
     if (outputRT === null) r.outputColorSpace = THREE.SRGBColorSpace
@@ -245,8 +293,7 @@ export function createScene(canvas) {
     uniforms2.uTime.value         = t
     uniformsStreaks.uTime.value   = t
     uniformsBands.uTime.value     = t
-    uniformsCubes.uTime.value     = t
-    renderPasses(renderer, rt1, rt2, rt3, cw(), ch())
+    renderPasses(renderer, rt1, rt2, cw(), ch())
     rafId = requestAnimationFrame(tick)
   }
 
@@ -275,21 +322,22 @@ export function createScene(canvas) {
 
   // Collect active animation speeds for loop-duration calculation
   function activeSpeeds() {
-    return [uniforms1.uSpeed.value, uniforms2.uSpeed.value, uniformsStreaks.uSpeed.value, uniformsBands.uSpeed.value, uniformsCubes.uSpeed.value]
+    return [uniforms1.uSpeed.value, uniforms2.uSpeed.value, uniformsStreaks.uSpeed.value, uniformsBands.uSpeed.value]
   }
-
-  const RESOLUTIONS = { '4K': [3840, 2160], '5K': [5120, 2880] }
 
   return {
     start: () => { rafId = requestAnimationFrame(tick) },
 
-    uniforms: { layer1: uniforms1, layer2: uniforms2, streaks: uniformsStreaks, bands: uniformsBands, cubes: uniformsCubes, halftone: uniformsHalftone },
+    uniforms: { layer1: uniforms1, layer2: uniforms2, streaks: uniformsStreaks, bands: uniformsBands, halftone: uniformsHalftone },
 
     // Returns exact loop-safe duration for a requested target duration
     getLoopDuration: (targetSecs) => computeLoopDuration(activeSpeeds(), targetSecs),
 
+    setAspectRatio,
+    exportDimensions,
+
     exportPNG: (label) => {
-      const [w, h] = RESOLUTIONS[label]
+      const [w, h] = exportDimensions(label)
       // renderFrame receives (offRenderer, finalRT). The final halftone pass renders
       // into finalRT (FloatType) so export.js reads back linear pixels and applies
       // its own sRGB LUT, bypassing toDataURL() color-space quirks.
@@ -306,39 +354,87 @@ export function createScene(canvas) {
         })
         const offRT1 = makeHDRRT(w, h)
         const offRT2 = makeHDRRT(w, h)
-        const offRT3 = makeHDRRT(w, h)
-        renderPasses(offRenderer, offRT1, offRT2, offRT3, w, h, finalRT)
+        renderPasses(offRenderer, offRT1, offRT2, w, h, finalRT)
         uniformsBands.uBackground.value    = rt1.texture
-        uniformsCubes.uBackground.value    = rt2.texture
-        uniformsHalftone.uBackground.value = rt3.texture
+        uniformsHalftone.uBackground.value = rt2.texture
         uniformsHalftone.uResolution.value.set(cw(), ch())
         offRT1.dispose()
         offRT2.dispose()
-        offRT3.dispose()
       })
     },
 
-    exportVideo: async ({ targetDuration, fps = 30, onProgress, onDone }) => {
+    exportVideo: async ({ targetDuration, fps = 30, resolution, onProgress, onDone }) => {
       const loopDuration = computeLoopDuration(activeSpeeds(), targetDuration)
 
       // Suspend live loop for the duration of the export
       cancelAnimationFrame(rafId)
       rafId = null
 
-      await exportVideo(
-        canvas,
-        (t) => {
-          uniforms1.uTime.value       = t
-          uniforms2.uTime.value       = t
-          uniformsStreaks.uTime.value = t
-          uniformsBands.uTime.value   = t
-          uniformsCubes.uTime.value   = t
-          renderPasses(renderer, rt1, rt2, rt3, cw(), ch())
-        },
-        loopDuration,
-        fps,
-        onProgress,
-      )
+      const is4K = resolution === '4K'
+
+      if (is4K) {
+        // Offscreen 4K rendering: create a dedicated canvas, renderer, and RTs
+        const [w, h] = exportDimensions('4K')
+        const offCanvas = document.createElement('canvas')
+        offCanvas.width  = w
+        offCanvas.height = h
+
+        const offRenderer = new THREE.WebGLRenderer({
+          canvas: offCanvas, antialias: false, alpha: true, preserveDrawingBuffer: true,
+        })
+        offRenderer.setPixelRatio(1)
+        offRenderer.setSize(w, h, false)
+
+        // Intermediate RTs at 4K with HalfFloatType for HDR headroom
+        const makeHDRRT = (rw, rh) => new THREE.WebGLRenderTarget(rw, rh, {
+          minFilter: THREE.LinearFilter,
+          magFilter: THREE.LinearFilter,
+          format:    THREE.RGBAFormat,
+          type:      THREE.HalfFloatType,
+        })
+        const offRT1 = makeHDRRT(w, h)
+        const offRT2 = makeHDRRT(w, h)
+
+        await exportVideo(
+          offCanvas,
+          (t) => {
+            uniforms1.uTime.value       = t
+            uniforms2.uTime.value       = t
+            uniformsStreaks.uTime.value = t
+            uniformsBands.uTime.value   = t
+            // renderPasses handles outputColorSpace: SRGBColorSpace for final → null (screen canvas)
+            renderPasses(offRenderer, offRT1, offRT2, w, h)
+          },
+          loopDuration,
+          fps,
+          onProgress,
+        )
+
+        // Restore live uniform bindings after offscreen export
+        uniformsBands.uBackground.value    = rt1.texture
+        uniformsHalftone.uBackground.value = rt2.texture
+        uniformsHalftone.uResolution.value.set(cw(), ch())
+
+        // Clean up offscreen resources
+        offRT1.dispose()
+        offRT2.dispose()
+        offRenderer.dispose()
+      } else {
+        // Canvas-resolution export (original path)
+        await exportVideo(
+          canvas,
+          (t) => {
+            uniforms1.uTime.value       = t
+            uniforms2.uTime.value       = t
+            uniformsStreaks.uTime.value = t
+            uniformsBands.uTime.value   = t
+            renderPasses(renderer, rt1, rt2, cw(), ch())
+          },
+          loopDuration,
+          fps,
+          onProgress,
+        )
+      }
 
       // Always restart — tick() respects paused state internally
       rafId = requestAnimationFrame(tick)

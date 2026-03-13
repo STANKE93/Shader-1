@@ -17,53 +17,55 @@ function injectStyles() {
     .cs-panel {
       position: fixed; top: 0; right: 0; z-index: 100;
       width: 284px;
-      background: rgba(6,6,6,1);
-      border-left: 1px solid rgba(240,200,0,0.12);
+      background: rgba(12, 13, 18, 0.95);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 0;
       color: #fff;
-      font: 12px/1.5 'Courier New', 'Consolas', monospace;
+      font: 12px/1.5 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       max-height: 100vh;
       overflow-y: auto;
       overflow-x: hidden;
+      box-shadow: 0 0 40px rgba(0,0,0,0.5);
     }
-    .cs-panel::-webkit-scrollbar { width: 3px; }
+    .cs-panel::-webkit-scrollbar { width: 4px; }
     .cs-panel::-webkit-scrollbar-track { background: transparent; }
-    .cs-panel::-webkit-scrollbar-thumb { background: rgba(240,200,0,0.2); border-radius: 0; }
+    .cs-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
 
     /* Header */
     .cs-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: 13px 16px 11px;
-      border-bottom: 1px solid rgba(240,200,0,0.15);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
     .cs-title {
       font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
-      color: rgba(240,200,0,0.9);
+      color: rgba(255, 255, 255, 0.92);
       text-transform: uppercase;
     }
     .cs-pause-btn {
-      background: none; border: 1px solid rgba(240,200,0,0.25);
-      border-radius: 2px; color: rgba(240,200,0,0.85); font-size: 12px;
+      background: none; border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px; color: rgba(255, 255, 255, 0.50); font-size: 12px;
       cursor: pointer; padding: 3px 10px; line-height: 1.5;
-      transition: border-color 0.15s, background 0.15s;
-      font-family: 'Courier New', 'Consolas', monospace;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+      font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
-    .cs-pause-btn:hover { border-color: rgba(240,200,0,0.5); background: rgba(240,200,0,0.08); }
+    .cs-pause-btn:hover { border-color: rgba(91, 156, 245, 0.35); background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.92); }
 
     /* Collapsible sections */
-    .cs-section { border-bottom: 1px solid rgba(240,200,0,0.08); }
+    .cs-section { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
     .cs-section:last-child { border-bottom: none; }
     .cs-section-hdr {
       display: flex; align-items: center; justify-content: space-between;
       padding: 9px 16px; cursor: pointer; user-select: none;
       transition: background 0.12s;
     }
-    .cs-section-hdr:hover { background: rgba(240,200,0,0.04); }
+    .cs-section-hdr:hover { background: rgba(255, 255, 255, 0.03); }
     .cs-section-label {
-      font-size: 10px; font-weight: 700; letter-spacing: 0.14em;
-      color: rgba(240,200,0,0.5); text-transform: uppercase;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+      color: rgba(255, 255, 255, 0.50); text-transform: uppercase;
     }
-    .cs-chevron { font-size: 9px; color: rgba(240,200,0,0.35); transition: transform 0.18s; }
+    .cs-chevron { font-size: 9px; color: rgba(255, 255, 255, 0.30); transition: transform 0.18s; }
     .cs-chevron.open { transform: rotate(180deg); }
     .cs-section-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 0; }
     .cs-section-body.hidden { display: none; }
@@ -71,29 +73,30 @@ function injectStyles() {
     /* Subsections */
     .cs-sub {
       margin-top: 10px;
-      border: 1px solid rgba(240,200,0,0.1);
-      border-radius: 2px; overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px; overflow: hidden;
+      background: rgba(255, 255, 255, 0.03);
     }
     .cs-sub-hdr {
       display: flex; align-items: center; justify-content: space-between;
       padding: 7px 11px;
-      background: rgba(240,200,0,0.04);
+      background: rgba(255, 255, 255, 0.02);
     }
-    .cs-sub-label { font-size: 11px; font-weight: 600; color: rgba(240,200,0,0.65); letter-spacing: 0.06em; }
+    .cs-sub-label { font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.50); letter-spacing: 0.06em; }
     .cs-sub-body { padding: 10px 11px; display: flex; flex-direction: column; gap: 8px; }
 
     /* Toggle switch */
     .cs-toggle { position: relative; width: 28px; height: 16px; flex-shrink: 0; cursor: pointer; }
     .cs-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
     .cs-toggle-track {
-      position: absolute; inset: 0; border-radius: 2px;
+      position: absolute; inset: 0; border-radius: 8px;
       background: rgba(255,255,255,0.08);
       transition: background 0.18s;
     }
-    .cs-toggle input:checked ~ .cs-toggle-track { background: rgba(240,200,0,0.65); }
+    .cs-toggle input:checked ~ .cs-toggle-track { background: rgba(91, 156, 245, 0.60); }
     .cs-toggle-thumb {
       position: absolute; top: 2px; left: 2px;
-      width: 12px; height: 12px; border-radius: 2px;
+      width: 12px; height: 12px; border-radius: 50%;
       background: rgba(255,255,255,0.9); pointer-events: none;
       transition: transform 0.18s;
     }
@@ -105,24 +108,24 @@ function injectStyles() {
       grid-template-columns: 86px 1fr 38px;
       align-items: center; gap: 7px;
     }
-    .cs-slider-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cs-slider-val { font-size: 11px; color: rgba(240,200,0,0.45); text-align: right; font-variant-numeric: tabular-nums; }
+    .cs-slider-label { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.50); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cs-slider-val { font-size: 11px; color: rgba(255,255,255,0.30); text-align: right; font-variant-numeric: tabular-nums; }
     input[type=range].cs-range {
       -webkit-appearance: none; appearance: none;
-      width: 100%; height: 1px;
-      background: rgba(240,200,0,0.2); border-radius: 0;
+      width: 100%; height: 2px;
+      background: rgba(255,255,255,0.08); border-radius: 1px;
       outline: none; cursor: pointer;
     }
     input[type=range].cs-range::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
-      width: 10px; height: 10px; border-radius: 1px;
-      background: #f0c800; border: none;
-      cursor: pointer; box-shadow: 0 0 6px rgba(240,200,0,0.4);
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #5b9cf5; border: none;
+      cursor: pointer; box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
     }
     input[type=range].cs-range::-moz-range-thumb {
-      width: 10px; height: 10px; border-radius: 1px;
-      background: #f0c800; border: none;
-      cursor: pointer; box-shadow: 0 0 6px rgba(240,200,0,0.4);
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #5b9cf5; border: none;
+      cursor: pointer; box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
     }
 
     /* Dual slider row — two mini sliders side by side */
@@ -139,120 +142,152 @@ function injectStyles() {
     .cs-dual-cell .cs-slider-label { font-size: 10px; min-width: 0; }
     .cs-dual-cell .cs-slider-val { font-size: 10px; }
 
+    /* Tilt pad — circular XY control */
+    .cs-tilt-wrap {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .cs-tilt-pad {
+      width: 64px; height: 64px; flex-shrink: 0;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0,0,0,0.3);
+      position: relative; cursor: crosshair;
+      overflow: hidden;
+    }
+    .cs-tilt-crosshair {
+      position: absolute; background: rgba(255,255,255,0.06);
+    }
+    .cs-tilt-crosshair-h { width: 100%; height: 1px; top: 50%; left: 0; }
+    .cs-tilt-crosshair-v { height: 100%; width: 1px; left: 50%; top: 0; }
+    .cs-tilt-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #5b9cf5; position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
+    }
+    .cs-tilt-labels {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: 10px; color: rgba(255,255,255,0.35);
+      font-variant-numeric: tabular-nums;
+    }
+    .cs-tilt-labels span { color: rgba(255,255,255,0.30); }
+
     /* Field row (label + pills) */
     .cs-field-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .cs-field-label { font-size: 11px; color: rgba(255,255,255,0.4); }
+    .cs-field-label { font-size: 11px; color: rgba(255,255,255,0.50); }
 
     /* Pills */
     .cs-pills { display: flex; gap: 3px; flex-wrap: wrap; }
     .cs-pill {
-      padding: 2px 7px; border-radius: 2px;
+      padding: 2px 7px; border-radius: 6px;
       font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
-      cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
-      background: transparent; color: rgba(255,255,255,0.3);
-      transition: all 0.13s; text-transform: uppercase;
+      cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);
+      background: transparent; color: rgba(255,255,255,0.30);
+      transition: all 0.15s; text-transform: uppercase;
     }
-    .cs-pill.active { background: rgba(240,200,0,0.15); color: rgba(240,200,0,0.9); border-color: rgba(240,200,0,0.4); }
-    .cs-pill:hover:not(.active) { background: rgba(240,200,0,0.05); color: rgba(255,255,255,0.55); }
+    .cs-pill.active { background: rgba(91, 156, 245, 0.15); color: #5b9cf5; border-color: rgba(91, 156, 245, 0.35); }
+    .cs-pill:hover:not(.active) { background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.50); }
 
     /* Geometry tabs */
     .cs-tabs { display: flex; gap: 4px; margin-top: 6px; margin-bottom: 2px; }
     .cs-tab {
-      flex: 1; padding: 5px 0; border-radius: 2px;
+      flex: 1; padding: 5px 0; border-radius: 6px;
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-      cursor: pointer; border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.3);
+      cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.30);
       transition: all 0.15s; text-transform: uppercase; text-align: center;
     }
-    .cs-tab.active { background: rgba(240,200,0,0.1); color: rgba(240,200,0,0.85); border-color: rgba(240,200,0,0.3); }
-    .cs-tab:hover:not(.active) { background: rgba(240,200,0,0.04); }
+    .cs-tab.active { background: rgba(91, 156, 245, 0.15); color: #5b9cf5; border-color: rgba(91, 156, 245, 0.35); }
+    .cs-tab:hover:not(.active) { background: rgba(255, 255, 255, 0.05); }
 
     /* Advanced toggle */
     .cs-adv-toggle {
       display: flex; align-items: center; gap: 6px;
       margin-top: 2px; cursor: pointer; user-select: none;
     }
-    .cs-adv-line { flex: 1; height: 1px; background: rgba(240,200,0,0.08); }
-    .cs-adv-label { font-size: 9px; color: rgba(240,200,0,0.3); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
+    .cs-adv-line { flex: 1; height: 1px; background: rgba(255, 255, 255, 0.08); }
+    .cs-adv-label { font-size: 9px; color: rgba(255,255,255,0.30); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
     .cs-adv-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
     .cs-adv-body.hidden { display: none; }
 
     /* Compact gradient preview */
     .cs-ramp-compact { display: flex; align-items: center; gap: 8px; }
     .cs-ramp-bar {
-      flex: 1; height: 14px; border-radius: 2px;
-      border: 1px solid rgba(240,200,0,0.15);
+      flex: 1; height: 14px; border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
       cursor: pointer; transition: border-color 0.13s;
     }
-    .cs-ramp-bar:hover { border-color: rgba(240,200,0,0.4); }
+    .cs-ramp-bar:hover { border-color: rgba(91, 156, 245, 0.35); }
     .cs-ramp-edit {
-      font-size: 9px; color: rgba(240,200,0,0.35); white-space: nowrap;
+      font-size: 9px; color: rgba(255,255,255,0.30); white-space: nowrap;
       background: none; border: none; cursor: pointer; padding: 0;
       letter-spacing: 0.08em; text-transform: uppercase;
       transition: color 0.13s;
+      font-family: inherit;
     }
-    .cs-ramp-edit:hover { color: rgba(240,200,0,0.7); }
+    .cs-ramp-edit:hover { color: #5b9cf5; }
 
     /* Color ramp popover */
     .cs-popover {
       position: fixed; z-index: 300; width: 238px;
-      background: rgba(6,6,6,0.97);
-      backdrop-filter: blur(16px);
-      border: 1px solid rgba(240,200,0,0.18);
-      border-radius: 2px; padding: 12px;
+      background: rgba(12, 13, 18, 0.97);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px; padding: 12px;
       display: flex; flex-direction: column; gap: 8px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     }
     .cs-popover.hidden { display: none; }
     .cs-popover-hdr { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .cs-popover-title { font-size: 10px; font-weight: 600; color: rgba(240,200,0,0.45); letter-spacing: 0.1em; text-transform: uppercase; flex: 1; }
+    .cs-popover-title { font-size: 10px; font-weight: 600; color: rgba(255, 255, 255, 0.50); letter-spacing: 0.1em; text-transform: uppercase; flex: 1; }
     .cs-popover-add {
-      font: 10px 'Courier New', monospace; padding: 2px 6px; border-radius: 2px; cursor: pointer;
-      background: rgba(240,200,0,0.08); border: 1px solid rgba(240,200,0,0.2);
-      color: rgba(240,200,0,0.7); transition: background 0.12s;
+      font-size: 10px; font-family: inherit; padding: 2px 6px; border-radius: 6px; cursor: pointer;
+      background: rgba(91, 156, 245, 0.12); border: 1px solid rgba(91, 156, 245, 0.25);
+      color: #5b9cf5; transition: background 0.12s;
     }
-    .cs-popover-add:hover { background: rgba(240,200,0,0.15); }
+    .cs-popover-add:hover { background: rgba(91, 156, 245, 0.22); }
     .cs-popover-close {
       background: none; border: none; color: rgba(255,255,255,0.3); font-size: 16px;
       cursor: pointer; padding: 0; line-height: 1; transition: color 0.12s;
     }
-    .cs-popover-close:hover { color: rgba(240,200,0,0.9); }
+    .cs-popover-close:hover { color: #5b9cf5; }
 
     /* Color input row */
     .cs-color-row { display: grid; grid-template-columns: 86px 1fr; align-items: center; gap: 7px; }
     .cs-color-input {
-      width: 100%; height: 22px; border-radius: 2px;
-      border: 1px solid rgba(240,200,0,0.15); cursor: pointer;
+      width: 100%; height: 22px; border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer;
       padding: 0; background: none;
     }
 
     /* Export */
     .cs-btn-row { display: flex; gap: 5px; }
     .cs-export-btn {
-      flex: 1; padding: 6px 0; border-radius: 2px;
+      flex: 1; padding: 6px 0; border-radius: 6px;
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
-      cursor: pointer; text-transform: uppercase; transition: all 0.13s;
-      font-family: 'Courier New', 'Consolas', monospace;
+      cursor: pointer; text-transform: uppercase; transition: all 0.15s;
+      font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
     .cs-export-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .cs-btn-video { background: rgba(240,200,0,0.1); border: 1px solid rgba(240,200,0,0.3); color: rgba(240,200,0,0.85); }
-    .cs-btn-video:hover:not(:disabled) { background: rgba(240,200,0,0.2); }
-    .cs-btn-png { background: rgba(240,200,0,0.06); border: 1px solid rgba(240,200,0,0.2); color: rgba(240,200,0,0.7); }
-    .cs-btn-png:hover:not(:disabled) { background: rgba(240,200,0,0.15); }
+    .cs-btn-video { background: rgba(91, 156, 245, 0.12); border: 1px solid rgba(91, 156, 245, 0.30); color: #5b9cf5; }
+    .cs-btn-video:hover:not(:disabled) { background: rgba(91, 156, 245, 0.22); }
+    .cs-btn-png { background: rgba(91, 156, 245, 0.06); border: 1px solid rgba(91, 156, 245, 0.18); color: rgba(91, 156, 245, 0.70); }
+    .cs-btn-png:hover:not(:disabled) { background: rgba(91, 156, 245, 0.15); }
     .cs-btn-snap {
-      width: 100%; padding: 6px 0; border-radius: 2px;
+      width: 100%; padding: 6px 0; border-radius: 6px;
       font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-      background: rgba(240,200,0,0.04); border: 1px solid rgba(240,200,0,0.12);
-      color: rgba(240,200,0,0.5); cursor: pointer; margin-bottom: 5px;
-      transition: all 0.13s;
-      font-family: 'Courier New', 'Consolas', monospace;
+      background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+      color: rgba(255,255,255,0.30); cursor: pointer; margin-bottom: 5px;
+      transition: all 0.15s;
+      font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
-    .cs-btn-snap:hover { background: rgba(240,200,0,0.1); }
+    .cs-btn-snap:hover { background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.50); }
     .cs-progress-wrap { display: flex; flex-direction: column; gap: 3px; }
-    .cs-progress-bar { width: 100%; height: 2px; background: rgba(240,200,0,0.08); border-radius: 0; overflow: hidden; }
-    .cs-progress-fill { height: 100%; width: 0%; background: #f0c800; transition: width 0.1s linear; }
-    .cs-progress-lbl { font-size: 9px; color: rgba(240,200,0,0.35); text-align: center; }
-    .cs-divider { height: 1px; background: rgba(240,200,0,0.08); margin: 6px 0; }
+    .cs-progress-bar { width: 100%; height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; overflow: hidden; }
+    .cs-progress-fill { height: 100%; width: 0%; background: #5b9cf5; transition: width 0.1s linear; }
+    .cs-progress-lbl { font-size: 9px; color: rgba(255,255,255,0.30); text-align: center; }
+    .cs-divider { height: 1px; background: rgba(255, 255, 255, 0.08); margin: 6px 0; }
 
     /* Preset circles */
     .cs-presets {
@@ -260,28 +295,28 @@ function injectStyles() {
       display: flex; gap: 8px; align-items: center;
     }
     .cs-preset {
-      width: 28px; height: 28px; border-radius: 2px;
-      border: 1.5px solid rgba(240,200,0,0.2);
+      width: 28px; height: 28px; border-radius: 6px;
+      border: 1.5px solid rgba(255, 255, 255, 0.10);
       cursor: pointer; transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
       background: rgba(255,255,255,0.03);
       position: relative; overflow: hidden;
       flex-shrink: 0;
     }
-    .cs-preset:hover { border-color: rgba(240,200,0,0.5); transform: scale(1.08); }
-    .cs-preset.empty { border-style: dashed; border-color: rgba(240,200,0,0.15); }
+    .cs-preset:hover { border-color: rgba(91, 156, 245, 0.5); transform: scale(1.06); }
+    .cs-preset.empty { border-style: dashed; border-color: rgba(255, 255, 255, 0.10); }
     .cs-preset.empty::after {
       content: '+'; position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; color: rgba(240,200,0,0.25); font-weight: 600;
+      font-size: 13px; color: rgba(255,255,255,0.20); font-weight: 600;
     }
     .cs-preset-tooltip {
       position: fixed; z-index: 200;
-      background: rgba(6,6,6,0.95);
+      background: rgba(12, 13, 18, 0.95);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(240,200,0,0.18);
-      border-radius: 2px; padding: 5px 9px;
-      font: 10px/1.4 'Courier New', 'Consolas', monospace;
-      color: rgba(240,200,0,0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px; padding: 5px 9px;
+      font: 10px/1.4 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      color: rgba(255,255,255,0.50);
       white-space: nowrap; pointer-events: none;
       opacity: 0; transition: opacity 0.12s;
     }
@@ -292,7 +327,7 @@ function injectStyles() {
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
-export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot) {
+export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions) {
   injectStyles()
 
   const panel = document.createElement('div')
@@ -301,9 +336,8 @@ export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration
   panel.appendChild(buildHeader(togglePause, () => randomizeSettings(uniforms)))
   panel.appendChild(buildLayersSection(uniforms))
   panel.appendChild(buildGeometrySection(uniforms))
-  panel.appendChild(buildEffectsSection(uniforms))
   panel.appendChild(buildRenderingSection(uniforms))
-  panel.appendChild(buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot))
+  panel.appendChild(buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot, setAspectRatio, exportDimensions))
 
   document.body.appendChild(panel)
   document.body.appendChild(buildPresets(uniforms))
@@ -405,7 +439,7 @@ function buildPresets(uniforms) {
 // ─── Randomize ───────────────────────────────────────────────────────────────
 
 function randomizeSettings(uniforms) {
-  const layers = ['layer1', 'layer2', 'bands', 'cubes', 'streaks', 'halftone']
+  const layers = ['layer1', 'layer2', 'bands', 'streaks', 'halftone']
   const activeLayers = new Set(layers.filter(k => uniforms[k].uLayerEnabled.value))
 
   for (const entry of uiRegistry) {
@@ -624,6 +658,120 @@ function makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, o
   row.appendChild(cell(labelA, valA, onChangeA))
   row.appendChild(cell(labelB, valB, onChangeB))
   return row
+}
+
+// Circular XY pad + Z slider for 3-axis tilt control.
+// X maps left/right (-1..1), Y maps up/down (-1..1), constrained to circle.
+// Z is a vertical slider on the side.
+function makeTiltPad(unifX, unifY, unifZ) {
+  const wrap = document.createElement('div')
+  wrap.className = 'cs-tilt-wrap'
+
+  // ── Circular pad ──
+  const pad = document.createElement('div')
+  pad.className = 'cs-tilt-pad'
+
+  const crossH = document.createElement('div')
+  crossH.className = 'cs-tilt-crosshair cs-tilt-crosshair-h'
+  const crossV = document.createElement('div')
+  crossV.className = 'cs-tilt-crosshair cs-tilt-crosshair-v'
+  pad.appendChild(crossH)
+  pad.appendChild(crossV)
+
+  const dot = document.createElement('div')
+  dot.className = 'cs-tilt-dot'
+  pad.appendChild(dot)
+
+  // Labels showing current values
+  const labels = document.createElement('div')
+  labels.className = 'cs-tilt-labels'
+  const xLabel = document.createElement('div')
+  const yLabel = document.createElement('div')
+  const zLabel = document.createElement('div')
+  labels.appendChild(xLabel)
+  labels.appendChild(yLabel)
+  labels.appendChild(zLabel)
+
+  function updateLabels() {
+    xLabel.innerHTML = 'X <span>' + unifX.value.toFixed(2) + '</span>'
+    yLabel.innerHTML = 'Y <span>' + unifY.value.toFixed(2) + '</span>'
+    zLabel.innerHTML = 'Z <span>' + unifZ.value.toFixed(2) + '</span>'
+  }
+
+  function positionDot() {
+    // Map -1..1 → 0%..100%
+    const px = (unifX.value + 1) * 0.5 * 100
+    const py = (1 - (unifY.value + 1) * 0.5) * 100 // invert Y so up = positive
+    dot.style.left = px + '%'
+    dot.style.top = py + '%'
+  }
+
+  function updateFromMouse(e) {
+    const rect = pad.getBoundingClientRect()
+    const cx = rect.width / 2
+    const cy = rect.height / 2
+    // Mouse position relative to center, normalized to -1..1
+    let nx = (e.clientX - rect.left - cx) / cx
+    let ny = -(e.clientY - rect.top - cy) / cy // invert Y
+    // Constrain to circle
+    const len = Math.sqrt(nx * nx + ny * ny)
+    if (len > 1) { nx /= len; ny /= len }
+    unifX.value = nx
+    unifY.value = ny
+    positionDot()
+    updateLabels()
+  }
+
+  let dragging = false
+  pad.addEventListener('mousedown', e => {
+    dragging = true
+    updateFromMouse(e)
+    e.preventDefault()
+  })
+  window.addEventListener('mousemove', e => {
+    if (dragging) updateFromMouse(e)
+  })
+  window.addEventListener('mouseup', () => { dragging = false })
+
+  // Double-click to reset to center
+  pad.addEventListener('dblclick', () => {
+    unifX.value = 0; unifY.value = 0
+    positionDot(); updateLabels()
+  })
+
+  // ── Z slider (vertical, beside the pad) ──
+  const zWrap = document.createElement('div')
+  zWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:2px;height:64px;'
+  const zInput = document.createElement('input')
+  zInput.type = 'range'
+  zInput.className = 'cs-range'
+  zInput.min = -1; zInput.max = 1; zInput.step = 0.01; zInput.value = unifZ.value
+  zInput.style.cssText = 'writing-mode:vertical-lr;direction:rtl;height:64px;width:18px;margin:0;'
+  zInput.addEventListener('input', () => {
+    unifZ.value = parseFloat(zInput.value)
+    updateLabels()
+  })
+  zWrap.appendChild(zInput)
+
+  if (_regLayer) {
+    uiRegistry.push({ type: 'slider', layer: _regLayer, min: -1, max: 1, step: 0.01,
+      set(v) { unifX.value = v; positionDot(); updateLabels() }
+    })
+    uiRegistry.push({ type: 'slider', layer: _regLayer, min: -1, max: 1, step: 0.01,
+      set(v) { unifY.value = v; positionDot(); updateLabels() }
+    })
+    uiRegistry.push({ type: 'slider', layer: _regLayer, min: -1, max: 1, step: 0.01,
+      set(v) { zInput.value = v; unifZ.value = v; updateLabels() }
+    })
+  }
+
+  positionDot()
+  updateLabels()
+
+  wrap.appendChild(pad)
+  wrap.appendChild(zWrap)
+  wrap.appendChild(labels)
+  return wrap
 }
 
 function fmtVal(v, step) {
@@ -976,28 +1124,68 @@ function buildGradientLayerSub(label, u, layerKey) {
       Math.round(u.uDriftAngle.value * 180 / Math.PI), 1,
       v => { u.uDriftAngle.value = v * Math.PI / 180 })
 
-    const noiseScaleRow = makeSlider('scale', 0.5, 12, u.uNoiseScale.value, 0.1,
-      v => { u.uNoiseScale.value = v })
+    // Sweep-specific controls
+    const sweepGroup = document.createElement('div')
+    sweepGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+    sweepGroup.appendChild(makeSlider('softness', 0, 1, 0.5, 0.01,
+      v => { u.uDriftAngle.value = v * 6.28318 }))
+    sweepGroup.appendChild(makeSlider('seam', 0, 1, u.uSweepSeam.value, 0.01,
+      v => { u.uSweepSeam.value = v }))
+    sweepGroup.appendChild(makeSlider('center', 0, 1, u.uSweepCenter.value, 0.01,
+      v => { u.uSweepCenter.value = v }))
 
-    // Liquify group — only visible in noise mode
-    const liquifyGroup = document.createElement('div')
-    liquifyGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;padding:8px 10px;margin-top:4px;border:1px solid rgba(255,255,255,0.06);border-radius:6px;'
-    const liquifyLbl = document.createElement('span')
-    liquifyLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:0.1em;color:rgba(255,255,255,0.22);text-transform:uppercase;'
-    liquifyLbl.textContent = 'Liquify'
-    liquifyGroup.appendChild(liquifyLbl)
-    liquifyGroup.appendChild(makeSlider('strength', 0, 1,   u.uLiquifyStrength.value, 0.01, v => { u.uLiquifyStrength.value = v }))
-    liquifyGroup.appendChild(makeSlider('scale',    0.2, 6, u.uLiquifyScale.value,    0.1,  v => { u.uLiquifyScale.value    = v }))
-    liquifyGroup.appendChild(makeSlider('speed',    0, 1,   u.uLiquifySpeed.value,    0.01, v => { u.uLiquifySpeed.value    = v }))
+    // Noise preset pills — replace individual noise sliders
+    const noisePresetRow = document.createElement('div')
+    noisePresetRow.className = 'cs-field-row'
+    noisePresetRow.style.display = 'none'
+    const noisePresetLbl = document.createElement('span')
+    noisePresetLbl.className = 'cs-field-label'
+    noisePresetLbl.textContent = 'Style'
+    const noisePresetPills = document.createElement('div')
+    noisePresetPills.className = 'cs-pills'
+
+    const noisePresets = {
+      subtle:   { scale: 1.5, detail: 1.5, dimension: 1.8, depth: 0.4, liqStr: 0.08, liqScale: 1.0, liqSpeed: 0.05 },
+      contrast: { scale: 3.0, detail: 2.5, dimension: 0.8, depth: 0.7, liqStr: 0.3,  liqScale: 1.5, liqSpeed: 0.12 },
+    }
+
+    function applyNoisePreset(name) {
+      const p = noisePresets[name]
+      u.uNoiseScale.value      = p.scale
+      u.uDetail.value          = p.detail
+      u.uDimension.value       = p.dimension
+      u.uNoiseDepth.value      = p.depth
+      u.uLiquifyStrength.value = p.liqStr
+      u.uLiquifyScale.value    = p.liqScale
+      u.uLiquifySpeed.value    = p.liqSpeed
+      subtleBtn.classList.toggle('active', name === 'subtle')
+      contrastBtn.classList.toggle('active', name === 'contrast')
+    }
+
+    const subtleBtn = document.createElement('button')
+    subtleBtn.className = 'cs-pill active'
+    subtleBtn.textContent = 'Subtle'
+    subtleBtn.addEventListener('click', () => applyNoisePreset('subtle'))
+
+    const contrastBtn = document.createElement('button')
+    contrastBtn.className = 'cs-pill'
+    contrastBtn.textContent = 'Contrast'
+    contrastBtn.addEventListener('click', () => applyNoisePreset('contrast'))
+
+    noisePresetPills.appendChild(subtleBtn)
+    noisePresetPills.appendChild(contrastBtn)
+    noisePresetRow.appendChild(noisePresetLbl)
+    noisePresetRow.appendChild(noisePresetPills)
 
     function syncMode() {
       const mode = u.uMode.value
       radial_.classList.toggle('active', mode === 0)
       linear_.classList.toggle('active', mode === 1)
       noise_.classList.toggle('active', mode === 2)
+      sweep_.classList.toggle('active', mode === 3)
       dirRow.style.display = mode === 1 ? '' : 'none'
-      noiseScaleRow.style.display = mode === 2 ? '' : 'none'
-      liquifyGroup.style.display = mode === 2 ? 'flex' : 'none'
+      noisePresetRow.style.display = mode === 2 ? 'flex' : 'none'
+      sweepGroup.style.display = mode === 3 ? 'flex' : 'none'
     }
 
     const radial_ = document.createElement('button')
@@ -1015,17 +1203,23 @@ function buildGradientLayerSub(label, u, layerKey) {
     noise_.textContent = 'Noise'
     noise_.addEventListener('click', () => { u.uMode.value = 2; syncMode() })
 
+    const sweep_ = document.createElement('button')
+    sweep_.className = 'cs-pill'
+    sweep_.textContent = 'Sweep'
+    sweep_.addEventListener('click', () => { u.uMode.value = 3; syncMode() })
+
     pills.appendChild(radial_)
     pills.appendChild(linear_)
     pills.appendChild(noise_)
+    pills.appendChild(sweep_)
     modeRow.appendChild(modeLbl)
     modeRow.appendChild(pills)
     body.appendChild(modeRow)
 
     body.appendChild(makeSlider('speed', 0.05, 2, u.uSpeed.value, 0.01, v => { u.uSpeed.value = v }))
     body.appendChild(dirRow)
-    body.appendChild(noiseScaleRow)
-    body.appendChild(liquifyGroup)
+    body.appendChild(noisePresetRow)
+    body.appendChild(sweepGroup)
 
     // Compact color ramp
     body.appendChild(makeCompactRamp(stopsFromUniforms(u), stops => applyRamp(stops, u), label))
@@ -1045,27 +1239,9 @@ function buildGradientLayerSub(label, u, layerKey) {
 function buildGeometrySection(uniforms) {
   return makeSection('Geometry', body => {
     const ub = uniforms.bands
-    const uc = uniforms.cubes
 
-    // Tabs
-    const tabs = document.createElement('div')
-    tabs.className = 'cs-tabs'
-
-    const bandsTab = document.createElement('button')
-    bandsTab.className = 'cs-tab active'
-    bandsTab.textContent = 'Bands'
-
-    const cubesTab = document.createElement('button')
-    cubesTab.className = 'cs-tab'
-    cubesTab.textContent = 'Cubes'
-
-    tabs.appendChild(bandsTab)
-    tabs.appendChild(cubesTab)
-    body.appendChild(tabs)
-
-    // Bands panel
     _regLayer = 'bands'
-    const bandsPanel = makeSubsection('Bands', ub, sub => {
+    body.appendChild(makeSubsection('Bands', ub, sub => {
 
       // ── Mode pills: Parallel | Burst ──────────────────────────────────────
       const modeRow = document.createElement('div')
@@ -1080,34 +1256,58 @@ function buildGeometrySection(uniforms) {
       const parallelGroup = document.createElement('div')
       parallelGroup.style.cssText = 'display:flex;flex-direction:column;gap:8px;'
       parallelGroup.appendChild(makeSlider('spacing', 1, 20, ub.uSpacing.value, 0.1, v => { ub.uSpacing.value = v }))
+      // Step pills: 1 Step (band + gap) vs 2 Step (no gap)
+      const stepRow = document.createElement('div')
+      stepRow.className = 'cs-field-row'
+      const stepLbl = document.createElement('span')
+      stepLbl.className = 'cs-field-label'
+      stepLbl.textContent = 'Step'
+      const stepPills = document.createElement('div')
+      stepPills.className = 'cs-pills'
+      const step1 = document.createElement('button')
+      step1.className = 'cs-pill' + (ub.uStep.value === 1 ? ' active' : '')
+      step1.textContent = '1'
+      const step2 = document.createElement('button')
+      step2.className = 'cs-pill' + (ub.uStep.value === 2 ? ' active' : '')
+      step2.textContent = '2'
+      function syncStep() {
+        step1.classList.toggle('active', ub.uStep.value === 1)
+        step2.classList.toggle('active', ub.uStep.value === 2)
+      }
+      step1.addEventListener('click', () => { ub.uStep.value = 1; syncStep() })
+      step2.addEventListener('click', () => { ub.uStep.value = 2; syncStep() })
+      stepPills.appendChild(step1)
+      stepPills.appendChild(step2)
+      stepRow.appendChild(stepLbl)
+      stepRow.appendChild(stepPills)
+      parallelGroup.appendChild(stepRow)
       parallelGroup.appendChild(makeSlider('angle°',  0, 360, Math.round(ub.uAngle.value * 180 / Math.PI), 1, v => { ub.uAngle.value = v * Math.PI / 180 }))
-      parallelGroup.appendChild(makeDualSlider('tilt X', 'tilt Y', 0, 1, ub.uTilt.value, ub.uTilt2.value, 0.01,
-        v => { ub.uTilt.value = v }, v => { ub.uTilt2.value = v }))
-      parallelGroup.appendChild(makeSlider('tilt Z', -1, 1, ub.uTiltZ.value, 0.01, v => { ub.uTiltZ.value = v }))
+      parallelGroup.appendChild(makeTiltPad(ub.uTilt, ub.uTilt2, ub.uTiltZ))
 
       // Burst-only controls
       const burstGroup = document.createElement('div')
       burstGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
-      burstGroup.appendChild(makeSlider('rays',      1,   24,   ub.uRaySpread.value,    1,    v => { ub.uRaySpread.value    = v }))
+      burstGroup.appendChild(makeSlider('angle°',    0,   360,  Math.round(ub.uOffset.value * 180 / Math.PI), 1, v => { ub.uOffset.value = v * Math.PI / 180 }))
       burstGroup.appendChild(makeSlider('intensity', 0,   2,    ub.uRayIntensity.value, 0.01, v => { ub.uRayIntensity.value = v }))
+      burstGroup.appendChild(makeTiltPad(ub.uTilt, ub.uTilt2, ub.uTiltZ))
 
       function syncBandsMode() {
-        const burst = ub.uBurstMode.value
-        parallel_.classList.toggle('active', !burst)
-        burst_.classList.toggle('active', burst)
-        parallelGroup.style.display = burst ? 'none' : 'flex'
-        burstGroup.style.display    = burst ? 'flex' : 'none'
+        const m = ub.uBandsMode.value
+        parallel_.classList.toggle('active', m === 0)
+        burst_.classList.toggle('active', m === 1)
+        parallelGroup.style.display = m === 0 ? 'flex' : 'none'
+        burstGroup.style.display    = m === 1 ? 'flex' : 'none'
       }
 
       const parallel_ = document.createElement('button')
       parallel_.className = 'cs-pill'
       parallel_.textContent = 'Parallel'
-      parallel_.addEventListener('click', () => { ub.uBurstMode.value = false; syncBandsMode() })
+      parallel_.addEventListener('click', () => { ub.uBandsMode.value = 0; syncBandsMode() })
 
       const burst_ = document.createElement('button')
       burst_.className = 'cs-pill'
       burst_.textContent = 'Burst'
-      burst_.addEventListener('click', () => { ub.uBurstMode.value = true; syncBandsMode() })
+      burst_.addEventListener('click', () => { ub.uBandsMode.value = 1; syncBandsMode() })
 
       modePills.appendChild(parallel_)
       modePills.appendChild(burst_)
@@ -1117,49 +1317,47 @@ function buildGeometrySection(uniforms) {
       sub.appendChild(parallelGroup)
       sub.appendChild(burstGroup)
 
-      // Speed and Advanced shared by both modes
+      // Speed, distortion, and Advanced shared by both modes
       sub.appendChild(makeSlider('speed', 0, 2, ub.uSpeed.value, 0.01, v => { ub.uSpeed.value = v }))
+      sub.appendChild(makeSlider('distort', 0, 1, ub.uDistort.value, 0.01, v => { ub.uDistort.value = v }))
       sub.appendChild(makeAdvanced(adv => {
+        // Band shape toggle: Flat / Tube / Fin
+        const shapeRow = document.createElement('div')
+        shapeRow.className = 'cs-field-row'
+        const shapeLbl = document.createElement('span')
+        shapeLbl.className = 'cs-field-label'
+        shapeLbl.textContent = 'Shape'
+        const shapePills = document.createElement('div')
+        shapePills.className = 'cs-pills'
+        const shapeNames = ['Flat', 'Tube', 'Fin']
+        const shapeBtns = shapeNames.map((name, i) => {
+          const btn = document.createElement('button')
+          btn.className = 'cs-pill' + (ub.uBandShape.value === i ? ' active' : '')
+          btn.textContent = name
+          btn.addEventListener('click', () => { ub.uBandShape.value = i; syncShape() })
+          shapePills.appendChild(btn)
+          return btn
+        })
+        function syncShape() {
+          shapeBtns.forEach((btn, i) => btn.classList.toggle('active', ub.uBandShape.value === i))
+        }
+        shapeRow.appendChild(shapeLbl)
+        shapeRow.appendChild(shapePills)
+        adv.appendChild(shapeRow)
+
         adv.appendChild(makeSlider('softness',        0.01, 1,   ub.uSoftness.value,       0.01, v => { ub.uSoftness.value       = v }))
         adv.appendChild(makeSlider('IOR',             1.0,  3.0, ub.uIOR.value,            0.01, v => { ub.uIOR.value            = v }))
         adv.appendChild(makeSlider('thickness',       0,    1,   ub.uThickness.value,      0.01, v => { ub.uThickness.value      = v }))
         adv.appendChild(makeSlider('fresnel',         0,    1,   ub.uFresnel.value,        0.01, v => { ub.uFresnel.value        = v }))
         adv.appendChild(makeSlider('bevel width',     0,    1,   ub.uBevelWidth.value,     0.01, v => { ub.uBevelWidth.value     = v }))
         adv.appendChild(makeSlider('bevel intensity', 0,    2,   ub.uBevelIntensity.value, 0.01, v => { ub.uBevelIntensity.value = v }))
+        adv.appendChild(makeSingleColor('tint color', ub.uTintColor))
+        adv.appendChild(makeSlider('tint strength',   0,    1,   ub.uTintStrength.value,   0.01, v => { ub.uTintStrength.value   = v }))
       }))
 
       syncBandsMode()
       _regLayer = null
-    })
-
-    // Cubes panel (hidden by default)
-    _regLayer = 'cubes'
-    const cubesPanel = makeSubsection('Cubes', uc, sub => {
-      sub.appendChild(makeSlider('spacing',       1,    20,  uc.uSpacing.value,      0.1,  v => { uc.uSpacing.value      = v }))
-      sub.appendChild(makeSlider('angle°',        0,    360, Math.round(uc.uAngle.value * 180 / Math.PI), 1, v => { uc.uAngle.value = v * Math.PI / 180 }))
-      sub.appendChild(makeSlider('speed',         0,    2,   uc.uSpeed.value,        0.01, v => { uc.uSpeed.value        = v }))
-      sub.appendChild(makeSlider('corner radius', 0,    1,   uc.uCornerRadius.value, 0.01, v => { uc.uCornerRadius.value = v }))
-      sub.appendChild(makeAdvanced(adv => {
-        adv.appendChild(makeSlider('softness',  0.01, 1,   uc.uSoftness.value,  0.01, v => { uc.uSoftness.value  = v }))
-        adv.appendChild(makeSlider('IOR',       1.0,  3.0, uc.uIOR.value,       0.01, v => { uc.uIOR.value       = v }))
-        adv.appendChild(makeSlider('thickness', 0,    1,   uc.uThickness.value, 0.01, v => { uc.uThickness.value = v }))
-        adv.appendChild(makeSlider('fresnel',   0,    1,   uc.uFresnel.value,   0.01, v => { uc.uFresnel.value   = v }))
-      }))
-      _regLayer = null
-    })
-    cubesPanel.style.display = 'none'
-
-    bandsTab.addEventListener('click', () => {
-      bandsTab.classList.add('active'); cubesTab.classList.remove('active')
-      bandsPanel.style.display = ''; cubesPanel.style.display = 'none'
-    })
-    cubesTab.addEventListener('click', () => {
-      cubesTab.classList.add('active'); bandsTab.classList.remove('active')
-      cubesPanel.style.display = ''; bandsPanel.style.display = 'none'
-    })
-
-    body.appendChild(bandsPanel)
-    body.appendChild(cubesPanel)
+    }))
   })
 }
 
@@ -1275,8 +1473,42 @@ function buildRenderingSection(uniforms) {
 
 // ─── EXPORT section ───────────────────────────────────────────────────────────
 
-function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot) {
+function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot, setAspectRatio, exportDimensions) {
   return makeSection('Export', body => {
+    // Aspect ratio pills
+    const arRow = document.createElement('div')
+    arRow.className = 'cs-field-row'
+    const arLbl = document.createElement('span')
+    arLbl.className = 'cs-field-label'
+    arLbl.textContent = 'Aspect ratio'
+    const arPills = document.createElement('div')
+    arPills.className = 'cs-pills'
+
+    const ratios = [
+      { label: 'Free', value: null },
+      { label: '1:1',  value: 1 },
+      { label: '4:5',  value: 4/5 },
+      { label: '3:4',  value: 3/4 },
+      { label: '4:3',  value: 4/3 },
+      { label: '16:9', value: 16/9 },
+      { label: '9:16', value: 9/16 },
+    ]
+    const arBtns = ratios.map(({ label, value }) => {
+      const btn = document.createElement('button')
+      btn.className = 'cs-pill' + (value === null ? ' active' : '')
+      btn.textContent = label
+      btn.addEventListener('click', () => {
+        setAspectRatio(value)
+        arBtns.forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+      })
+      return btn
+    })
+    arBtns.forEach(b => arPills.appendChild(b))
+    arRow.appendChild(arLbl)
+    arRow.appendChild(arPills)
+    body.appendChild(arRow)
+
     // FPS toggle
     let selectedFps = 30
     const fpsRow = document.createElement('div')
@@ -1304,6 +1536,44 @@ function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot) {
     fpsRow.appendChild(fpsLbl)
     fpsRow.appendChild(fpsPills)
     body.appendChild(fpsRow)
+
+    // Video resolution toggle
+    let selectedVideoRes = 'Canvas'
+    const resRow = document.createElement('div')
+    resRow.className = 'cs-field-row'
+    resRow.style.marginTop = '4px'
+
+    const resLbl = document.createElement('span')
+    resLbl.className = 'cs-field-label'
+    resLbl.textContent = 'Video resolution'
+
+    const resPills = document.createElement('div')
+    resPills.className = 'cs-pills'
+
+    const resBtns = ['Canvas', '4K'].map(res => {
+      const btn = document.createElement('button')
+      btn.className = 'cs-pill' + (res === 'Canvas' ? ' active' : '')
+      btn.textContent = res
+      if (res === '4K') {
+        btn.addEventListener('mouseenter', () => {
+          if (!btn.classList.contains('active') || true) {
+            const [ew, eh] = exportDimensions('4K')
+            btn.textContent = `${ew}\u00d7${eh}`
+          }
+        })
+        btn.addEventListener('mouseleave', () => { btn.textContent = '4K' })
+      }
+      btn.addEventListener('click', () => {
+        selectedVideoRes = res
+        resBtns.forEach(b => b.classList.remove('active'))
+        btn.classList.add('active')
+      })
+      return btn
+    })
+    resBtns.forEach(b => resPills.appendChild(b))
+    resRow.appendChild(resLbl)
+    resRow.appendChild(resPills)
+    body.appendChild(resRow)
 
     // Progress bar
     const progressWrap = document.createElement('div')
@@ -1337,11 +1607,13 @@ function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot) {
         const exact = getLoopDuration(secs)
         progressWrap.style.display = 'flex'
         progressFill.style.width = '0%'
-        progressLbl.textContent = `recording ${exact.toFixed(1)}s @ ${selectedFps}fps…`
+        const resLabel = selectedVideoRes === '4K' ? '4K' : ''
+        progressLbl.textContent = `recording ${exact.toFixed(1)}s @ ${selectedFps}fps${resLabel ? ' ' + resLabel : ''}…`
         durRow.style.opacity = '0.35'; durRow.style.pointerEvents = 'none'
         fpsPills.style.pointerEvents = 'none'
+        resPills.style.pointerEvents = 'none'
         await exportVideo({
-          targetDuration: secs, fps: selectedFps,
+          targetDuration: secs, fps: selectedFps, resolution: selectedVideoRes,
           onProgress: p => {
             progressFill.style.width = `${Math.round(p * 100)}%`
             progressLbl.textContent = `recording… ${Math.round(p * 100)}%`
@@ -1351,6 +1623,7 @@ function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot) {
             progressWrap.style.display = 'none'
             durRow.style.opacity = '1'; durRow.style.pointerEvents = 'auto'
             fpsPills.style.pointerEvents = 'auto'
+            resPills.style.pointerEvents = 'auto'
           },
         })
       })
@@ -1372,10 +1645,17 @@ function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot) {
 
     const pngRow = document.createElement('div')
     pngRow.className = 'cs-btn-row'
-    for (const label of ['4K', '5K']) {
+    for (const label of ['HD', '4K', '5K']) {
       const btn = document.createElement('button')
       btn.className = 'cs-export-btn cs-btn-png'
       btn.textContent = label
+      btn.addEventListener('mouseenter', () => {
+        if (!btn.disabled) {
+          const [ew, eh] = exportDimensions(label)
+          btn.textContent = `${ew}×${eh}`
+        }
+      })
+      btn.addEventListener('mouseleave', () => { if (!btn.disabled) btn.textContent = label })
       btn.addEventListener('click', () => {
         btn.textContent = '…'; btn.disabled = true
         requestAnimationFrame(() => {

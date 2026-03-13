@@ -14,6 +14,6 @@ frame.className = 'cs-app-frame'
 })
 document.body.appendChild(frame)
 
-const { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot } = createScene(canvas)
-createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot)
+const { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions } = createScene(canvas)
+createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions)
 start()

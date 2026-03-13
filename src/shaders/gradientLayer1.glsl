@@ -8,12 +8,17 @@ uniform bool  uLayerEnabled;
 uniform float uSpeed;
 uniform float uOffset;
 uniform vec2  uResolution;
-uniform int   uMode;             // 0 = radial, 1 = linear, 2 = noise
+uniform int   uMode;             // 0 = radial, 1 = linear, 2 = noise, 3 = sweep
 uniform float uDriftAngle;       // drift direction in radians (linear mode only)
 uniform float uNoiseScale;       // spatial frequency of noise patches (noise mode only)
+uniform float uDetail;           // fractal octave count (1–8, float for smooth blending)
+uniform float uDimension;        // fractal dimension H — higher = smoother (0–2)
+uniform float uNoiseDepth;       // emboss/3D lighting intensity (0 = flat, 1 = full)
 uniform float uLiquifyStrength;  // domain-warp displacement magnitude (noise mode only)
 uniform float uLiquifyScale;     // spatial frequency of the flow vector field
 uniform float uLiquifySpeed;     // temporal rate of the flow field (independent of uSpeed)
+uniform float uSweepSeam;       // sweep back-seam softness (0 = sharp, 1 = soft)
+uniform float uSweepCenter;    // center blur radius (0 = sharp, 1 = soft)
 
 varying vec2 vUv;
 
@@ -51,6 +56,30 @@ float valueNoise(vec2 uv) {
   );
 }
 
+// Musgrave fBM — fractal Brownian motion with dimension-controlled roughness.
+// Each octave's amplitude is scaled by lacunarity^(-H) where H = uDimension.
+// Higher H → smoother (high-frequency octaves contribute less).
+// uDetail controls octave count as a float for smooth transitions.
+float musgraveFBM(vec2 uv) {
+  const float lacunarity = 2.0;
+  float sum   = 0.0;
+  float amp   = 1.0;
+  float freq  = 1.0;
+  float maxAmp = 0.0;
+  int octaves = int(ceil(uDetail));
+  for (int i = 0; i < 8; i++) {
+    if (i >= octaves) break;
+    // Smooth last octave contribution for fractional uDetail
+    float w = (i == octaves - 1) ? fract(uDetail) : 1.0;
+    if (w <= 0.0 && i == octaves - 1) w = 1.0; // integer detail = full last octave
+    sum    += valueNoise(uv * freq) * amp * w;
+    maxAmp += amp * w;
+    freq   *= lacunarity;
+    amp    *= pow(lacunarity, -uDimension);
+  }
+  return sum / maxAmp; // normalize to [0, 1]
+}
+
 void main() {
   if (!uLayerEnabled) {
     gl_FragColor = vec4(0.0);
@@ -80,9 +109,44 @@ void main() {
     float fy = valueNoise(flowCoord + vec2(3.7, 8.3)) * 2.0 - 1.0;
     vec2 warpedUV = vUv + vec2(fx, fy) * uLiquifyStrength;
 
-    float n1 = valueNoise(warpedUV * uNoiseScale + vec2(t * 0.31, t * 0.17));
-    float n2 = valueNoise(warpedUV * uNoiseScale * 1.7 - vec2(t * 0.19, t * 0.27));
-    wave = n1 * 0.65 + n2 * 0.35;
+    vec2 noiseCoord = warpedUV * uNoiseScale + vec2(t * 0.31, t * 0.17);
+    wave = musgraveFBM(noiseCoord);
+
+    // Depth: treat noise as a height field, compute gradient via finite
+    // differences, derive a surface normal, and apply directional lighting.
+    // Light from upper-left creates natural highlight/shadow emboss.
+    if (uNoiseDepth > 0.0) {
+      float eps = 0.008;
+      float hR = musgraveFBM(noiseCoord + vec2(eps, 0.0));
+      float hU = musgraveFBM(noiseCoord + vec2(0.0, eps));
+      // Surface normal from height gradient (Z scale controls emboss strength)
+      vec3 N = normalize(vec3(wave - hR, wave - hU, 0.15));
+      // Light from upper-left
+      vec3 L = normalize(vec3(0.5, 0.7, 1.0));
+      float lighting = dot(N, L) * 0.5 + 0.5; // remap to 0..1
+      // Blend: 1.0 = flat (no depth), lighting = full emboss
+      wave = wave * mix(1.0, lighting, uNoiseDepth);
+      wave = clamp(wave, 0.0, 1.0);
+    }
+  } else if (uMode == 3) {
+    // Sweep: rotating angular gradient — color ramp sweeps like a clock hand.
+    vec2  delta = vUv - 0.5;
+    float dist  = length(delta);
+    float angle = atan(delta.y, delta.x); // [-π, π]
+    float sweepAngle = -uTime * uSpeed * 1.5 + uOffset;
+    float diff = angle - sweepAngle;
+    diff = mod(diff + 3.14159265, 6.28318530) - 3.14159265;
+    // Soft edge controlled by uDriftAngle remapped: 0° → wide, 360° → sharp
+    float softEdge = mix(2.5, 0.4, uDriftAngle / 6.28318);
+    wave = smoothstep(-softEdge, softEdge, -diff);
+    // Back-seam softness: fade the hard line at the opposite side of the
+    // sweep arm (where diff wraps at ±π) by blending toward mid-ramp.
+    float seamWidth = uSweepSeam * 1.8;
+    float backFade = smoothstep(3.14159265, 3.14159265 - seamWidth, abs(diff));
+    wave = mix(0.5, wave, backFade);
+    // Center blur: dissolve the seam where it converges at the middle
+    float centerFade = smoothstep(0.0, uSweepCenter * 0.5, dist);
+    wave = mix(0.5, wave, centerFade);
   } else {
     // Radial growth: concentric rings expanding from canvas centre.
     float dist = length(vUv - 0.5) * 2.8;

@@ -12,11 +12,16 @@ uniform float     uFresnel;       // [0..1]: Fresnel edge attenuation strength
 uniform float     uTilt;          // [0..1]: venetian blind tilt across band (0 = flat, 1 = edge-on)
 uniform float     uTilt2;         // [0..1]: venetian blind tilt along band (forward/backward lean)
 uniform float     uTiltZ;         // [-1..1]: Z normal modulation (steepness gradient across band)
+uniform int       uBandShape;     // 0 = flat slab, 1 = tube (cylindrical), 2 = fin (tapered ridge)
 uniform float     uBevelWidth;    // [0..1]: half-width of bevel highlight in band space
 uniform float     uBevelIntensity;// [0..2]: peak brightness of the bevel glint
+uniform vec3      uTintColor;     // tinted glass absorption color (linear RGB)
+uniform float     uTintStrength;  // [0..1]: tint intensity (0 = clear glass)
+uniform int       uStep;          // 1 = normal (band + gap), 2 = doubled (no gap)
+uniform float     uDistort;       // [0..1]: noise-based band distortion
 
-// Burst mode
-uniform bool      uBurstMode;     // false = parallel bands, true = radial burst
+// Mode: 0 = parallel, 1 = burst
+uniform int       uBandsMode;
 uniform float     uBurstCenterX;  // burst origin X in UV space [0..1]
 uniform float     uBurstCenterY;  // burst origin Y in UV space [0..1]
 uniform float     uRaySpread;     // ray count — keep integer to avoid ±π seam
@@ -27,6 +32,23 @@ varying vec2 vUv;
 
 // Surface steepness — artistic constant shared by both modes.
 const float STEEPNESS = 0.13;
+
+// Simple 2D value noise for band distortion
+float hash21(vec2 p) {
+  p = fract(p * vec2(233.34, 851.73));
+  p += dot(p, p + 23.45);
+  return fract(p.x * p.y);
+}
+float valueNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f); // smoothstep interp
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
 
 // ─── Bevel highlight ─────────────────────────────────────────────────────────
 // Shared by both modes. wave is the band/ray height profile [0..1];
@@ -56,14 +78,23 @@ void main() {
     return;
   }
 
-  if (!uBurstMode) {
+  if (uBandsMode == 0) {
     // ─── PARALLEL BANDS ────────────────────────────────────────────────────
 
     vec2  dir   = vec2(cos(uAngle), sin(uAngle));
     float proj  = dot(vUv, dir);
-    float phase = proj * uSpacing * 6.28318 + uTime * uSpeed + uOffset;
+    // Noise-based distortion: gently warps band positions
+    float distortN = (valueNoise(vUv * 4.0 + uTime * 0.15) - 0.5) * 2.0;
+    float phase = proj * uSpacing * 6.28318 + uTime * uSpeed + uOffset
+                + distortN * uDistort * 2.5;
 
-    float wave = sin(phase) * 0.5 + 0.5;
+    // Step 1: normal sine (band + gap). Step 2: abs(sin) doubles bands, no gap.
+    float wave;
+    if (uStep == 2) {
+      wave = abs(sin(phase));
+    } else {
+      wave = sin(phase) * 0.5 + 0.5;
+    }
     float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
     float thickMask = mix(bandMask, wave, uThickness);
@@ -79,8 +110,23 @@ void main() {
     float tiltNormal = uTilt * crossPos;
     float tiltNormal2 = uTilt2 * crossPos;
     float tiltZ = 1.0 + uTiltZ * crossPos;
-    float gradMag = cos(phase) * STEEPNESS;
-    vec3  N       = normalize(vec3((-gradMag + tiltNormal) * dir + tiltNormal2 * perp, max(tiltZ, 0.05)));
+    // Band cross-section shape determines the surface gradient:
+    //   Flat:  sinusoidal profile — gradMag = cos(phase), peaks at edges
+    //   Tube:  cylindrical — linear normal proportional to crossPos
+    //   Fin:   tapered ridge — steep spine at center, fading to flat at edges
+    float gradMag;
+    if (uBandShape == 1) {
+      gradMag = crossPos * STEEPNESS * 3.0;
+    } else if (uBandShape == 2) {
+      // Fin: sharp ridge at center (crossPos ≈ 0), tapering to zero at edges.
+      // sign(crossPos) gives direction; pow() concentrates slope near spine.
+      float absCross = abs(crossPos);
+      gradMag = sign(crossPos) * pow(1.0 - absCross, 2.0) * STEEPNESS * 4.0;
+    } else {
+      gradMag = cos(phase) * STEEPNESS;
+    }
+
+    vec3  N = normalize(vec3((-gradMag + tiltNormal) * dir + tiltNormal2 * perp, max(tiltZ, 0.05)));
 
     float eta      = 1.0 / max(uIOR, 1.0);
     vec3  incident = vec3(0.0, 0.0, -1.0);
@@ -94,8 +140,13 @@ void main() {
     vec2 totalDisp    = displacement + bevelDisp(wave, slope, refracted);
 
     vec4 bg    = texture2D(uBackground, vUv + totalDisp);
-    vec3 glint = bevelGlint(wave, slope, bg.rgb);
-    gl_FragColor = vec4(bg.rgb + glint, bg.a);
+
+    // Tinted glass: absorb color based on optical thickness (thickMask).
+    // At band center (thickest glass) tint is strongest; edges are clear.
+    vec3 tinted = mix(bg.rgb, bg.rgb * uTintColor, uTintStrength * thickMask);
+
+    vec3 glint = bevelGlint(wave, slope, tinted);
+    gl_FragColor = vec4(tinted + glint, bg.a);
 
   } else {
     // ─── BURST MODE ────────────────────────────────────────────────────────
@@ -116,9 +167,16 @@ void main() {
     float angle = atan(delta.y, delta.x); // ∈ [-π, π]
 
     // Angular phase → uRaySpread positive lobes = uRaySpread rays in 360°.
-    float phase = angle * uRaySpread + uTime * uSpeed + uOffset;
+    float distortN = (valueNoise(vUv * 4.0 + uTime * 0.15) - 0.5) * 2.0;
+    float phase = angle * uRaySpread + uTime * uSpeed + uOffset
+                + distortN * uDistort * 2.5;
 
-    float wave = sin(phase) * 0.5 + 0.5;
+    float wave;
+    if (uStep == 2) {
+      wave = abs(sin(phase));
+    } else {
+      wave = sin(phase) * 0.5 + 0.5;
+    }
     float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
     float thickMask = mix(bandMask, wave, uThickness);
@@ -129,14 +187,27 @@ void main() {
     float outerFade  = 1.0 - smoothstep(uRayLength * 0.72, uRayLength, dist);
     float radialFade = innerFade * outerFade;
 
-    // Surface normal: tilted radially (not tangentially) so IOR refraction
-    // pushes pixels inward/outward from the origin — matching the visual feel
-    // of a radial glass lens rather than a spinning tangential warp.
-    // The angular slope |cos(phase)| peaks at ray edges, matching the
-    // parallel-bands convention so IOR/fresnel values transfer directly.
+    // Tilt: same venetian blind logic as parallel bands.
+    // rDir = radial (cross-ray), tDir = tangential (along-ray).
+    vec2  tDir = vec2(-rDir.y, rDir.x);
+    float crossPos = (wave - 0.5) * 2.0;
+
+    // Surface normal: shape-dependent gradient (same options as parallel bands).
     float slope   = abs(cos(phase));
-    float gradMag = slope * STEEPNESS;
-    vec3  N       = normalize(vec3(-gradMag * rDir, 1.0));
+    float gradMag;
+    if (uBandShape == 1) {
+      gradMag = crossPos * STEEPNESS * 3.0;
+    } else if (uBandShape == 2) {
+      float absCross = abs(crossPos);
+      gradMag = sign(crossPos) * pow(1.0 - absCross, 2.0) * STEEPNESS * 4.0;
+    } else {
+      gradMag = slope * STEEPNESS;
+    }
+    float tiltNormal  = uTilt  * crossPos;
+    float tiltNormal2 = uTilt2 * crossPos;
+    float tiltZ = 1.0 + uTiltZ * crossPos;
+
+    vec3  N = normalize(vec3((-gradMag + tiltNormal) * rDir + tiltNormal2 * tDir, max(tiltZ, 0.05)));
 
     float eta      = 1.0 / max(uIOR, 1.0);
     vec3  incident = vec3(0.0, 0.0, -1.0);
@@ -150,15 +221,17 @@ void main() {
     vec2 totalDisp    = displacement + bevelDisp(wave, slope, refracted) * radialFade;
 
     vec4 bg    = texture2D(uBackground, vUv + totalDisp);
-    vec3 glint = bevelGlint(wave, slope, bg.rgb) * radialFade;
+
+    // Tinted glass absorption
+    vec3 tinted = mix(bg.rgb, bg.rgb * uTintColor, uTintStrength * thickMask * radialFade);
+
+    vec3 glint = bevelGlint(wave, slope, tinted) * radialFade;
 
     // Ray intensity: additive brightness inside each ray streak.
-    // Tinted with background so the glow feels like light passing through
-    // the scene rather than a flat overlay painted on top.
     float rayFactor = bandMask * radialFade * uRayIntensity;
-    vec3  rayAdd    = mix(bg.rgb, vec3(1.0), 0.35) * rayFactor * 0.4;
+    vec3  rayAdd    = mix(tinted, vec3(1.0), 0.35) * rayFactor * 0.4;
 
-    vec3 burstColor = bg.rgb + rayAdd + glint;
+    vec3 burstColor = tinted + rayAdd + glint;
     gl_FragColor = vec4(burstColor, bg.a);
   }
 }

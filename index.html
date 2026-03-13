@@ -16,18 +16,20 @@
         border-radius: 6px;
       }
       .cs-app-frame {
-        position: fixed; top: 30px; left: 30px; bottom: 30px; right: 284px;
+        position: fixed;
         z-index: 50;
         pointer-events: none;
-        border: 1.5px solid rgba(240,200,0,0.18);
+        border: 1.5px solid rgba(255,255,255,0.06);
         border-radius: 6px;
+        /* Initial fallback; overridden by resizeCanvas() in scene.js */
+        top: 30px; left: 30px; bottom: 30px; right: 284px;
       }
       .cs-frame-corner {
         position: absolute; width: 18px; height: 18px;
         pointer-events: none;
       }
       .cs-frame-corner::before, .cs-frame-corner::after {
-        content: ''; position: absolute; background: rgba(240,200,0,0.45);
+        content: ''; position: absolute; background: rgba(255,255,255,0.12);
       }
       .cs-frame-corner::before { width: 18px; height: 1.5px; }
       .cs-frame-corner::after  { width: 1.5px; height: 18px; }
