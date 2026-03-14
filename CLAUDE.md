@@ -26,24 +26,23 @@ Do not suggest alternative stacks unless explicitly asked.
 
 ## Architecture
 
-### Render Pipeline (4 passes)
+### Render Pipeline (3 passes)
 
 `scene.js` runs a multi-pass render on every animation frame:
 
 ```
 Pass 1: bgScene       → rt1    (Layer 1 + Layer 2 composited)
 Pass 2: bandsScene    → rt2    (Diagonal Bands reads rt1 as uBackground)
-Pass 3: cubesScene    → rt3    (Cubes reads rt2 as uBackground)
-Pass 4: halftoneScene → screen (Halftone reads rt3 as uBackground)
+Pass 3: halftoneScene → screen (Halftone reads rt2 as uBackground)
 ```
 
-`renderPasses(r, bgRT1, bgRT2, bgRT3, w, h, outputRT = null)` is shared between the live loop and both export paths (PNG and video) so all four produce identical output. The optional `outputRT` redirects the final pass to a render target instead of the screen.
+`renderPasses(r, bgRT1, bgRT2, w, h, outputRT = null)` is shared between the live loop and both export paths (PNG and video) so all three produce identical output. The optional `outputRT` redirects the final pass to a render target instead of the screen.
 
 ### Data Flow
 
 ```
 main.js
-  └─ createScene(canvas)  → { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot }
+  └─ createScene(canvas)  → { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions }
   └─ createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot)
 ```
 
@@ -54,7 +53,6 @@ main.js
   layer2:   uniforms2,          // gradient layer 2
   streaks:  uniformsStreaks,    // light streaks (disabled, code preserved)
   bands:    uniformsBands,      // diagonal bands distortion
-  cubes:    uniformsCubes,      // rounded-rect tile grid distortion
   halftone: uniformsHalftone,   // halftone screen
 }
 ```
@@ -63,12 +61,11 @@ main.js
 
 | Key | File | Scene | Blend | Description |
 |-----|------|-------|-------|-------------|
-| `layer1` | `gradientLayer1.glsl` | `bgScene` | `NormalBlending` (opaque base) | Animated gradient: radial, linear, or noise mode |
+| `layer1` | `gradientLayer1.glsl` | `bgScene` | `NormalBlending` (opaque base) | Animated gradient: radial, linear, or sweep mode |
 | `layer2` | `gradientLayer2.glsl` | `bgScene` | `AdditiveBlending`, transparent | Same modes as layer 1, overlaid |
 | `streaks` | `lightStreaks.glsl` | `bgScene` | `AdditiveBlending`, transparent | **Currently disabled** (`uLayerEnabled: false`), UI removed. Shader code preserved for future rework |
-| `bands` | `diagonalBands.glsl` | `bandsScene` | Reads `rt1` via `uBackground` | IOR-based refraction distortion with tilt and tube shape |
-| `cubes` | `cubes.glsl` | `cubesScene` | Reads `rt2` via `uBackground` | Rounded-rect tile grid IOR distortion |
-| `halftone` | `halftone.glsl` | `halftoneScene` | Reads `rt3` via `uBackground` | Dot/square-grid screen overlay |
+| `bands` | `diagonalBands.glsl` | `bandsScene` | Reads `rt1` via `uBackground` | IOR glass refraction with Schlick Fresnel, Blinn-Phong specular, multi-tap blur |
+| `halftone` | `halftone.glsl` | `halftoneScene` | Reads `rt2` via `uBackground` | Dot/square-grid screen overlay |
 
 All layers share `baseVertex.glsl` as the vertex shader.
 
@@ -81,36 +78,65 @@ All layers share `baseVertex.glsl` as the vertex shader.
 Semantic lookup for quickly finding and working on specific features. Each entry lists the feature name, keywords for search, and where to find the code.
 
 ### LAYERS — Gradient Layer 1 / Layer 2
-**Keywords**: layer 1, layer 2, gradient, color ramp, radial, linear, noise, drift, rings, liquify, warp, blend mode, additive, opaque
+**Keywords**: layer 1, layer 2, gradient, color ramp, radial, linear, sweep, drift, rings, topographic, ripple, blend mode, additive, opaque
 - Shader: `src/shaders/gradientLayer1.glsl`, `gradientLayer2.glsl`
 - Scene: `scene.js` — `uniforms1`, `uniforms2`
 - Controls: `controls.js` — `buildLayersSection`, `buildGradientLayerSub`
-- Uniforms: `uTime, uLayerEnabled, uSpeed, uOffset, uResolution, uRampColors[8], uRampPositions[8], uRampCount, uMode(int), uDriftAngle, uNoiseScale, uLiquifyStrength, uLiquifyScale, uLiquifySpeed`
-- Modes via `uMode`: **0=Radial** / **1=Linear** (uses `uDriftAngle`, sub-harmonic) / **2=Noise** (value noise + liquify domain warp)
+- Uniforms: `uTime, uLayerEnabled, uSpeed, uOffset, uResolution, uRampColors[8], uRampPositions[8], uRampCount, uMode(int), uDriftAngle, uRipple, uRippleCount, uRippleCompress, uSweepSeam, uSweepCenter`
+- Modes via `uMode`: **0=Radial** / **1=Linear** (uses `uDriftAngle`, sub-harmonic) / **2=Sweep** (rotating angular gradient)
 - Layer 1: `NormalBlending` (opaque base); Layer 2: `AdditiveBlending` (transparent overlay)
 - Color ramp: `stopsFromUniforms` / `applyRamp`; `MAX_STOPS=8`
 
+#### Radial Mode — Topographic Light Surface
+The radial mode renders an animated topographic light surface with defined central force:
+- **Non-uniform contour compression** via sqrt distance mapping (`mapped = sqrt(dist * comp)`). Inner rings bunch tight, outer rings spread.
+- **Dual harmonics**: primary wave + counter-propagating sub-harmonic at `freq * 0.614` (golden-ish ratio) for organic interference.
+- **Atmospheric falloff**: `exp(-dist * 2.2) * smoothstep(0.0, 0.04, dist)` — exponential energy dissipation from center.
+- **Topographic directional lighting** (when `uRipple > 0`): analytical surface normal derived from height-field gradient, lit by a virtual directional light from upper-left `(0.4, 0.55, 1.0)`.
+- Controls (visible only in radial mode):
+  - `uRipple` (0–1): topographic lighting depth
+  - `uRippleCount` (1–20): ring density multiplier (default 7)
+  - `uRippleCompress` (0.01–20): sqrt compression factor — higher = tighter center bunching (default 6)
+
+#### Sweep Mode
+Rotating angular gradient — color ramp sweeps like a clock hand:
+- `uDriftAngle` remapped as softness: 0° → wide gradient, 360° → sharp edge
+- `uSweepSeam` (0–1): back-seam softness (where ±π meets)
+- `uSweepCenter` (0–1): center blur radius
+
+#### Linear Mode
+Projects UV onto drift axis and translates over time:
+- Primary wave + secondary sub-harmonic at 70% frequency for gradient richness
+- `uDriftAngle`: drift direction in radians
+
 ### GEOMETRY — Bands (Diagonal Bands)
-**Keywords**: bands, diagonal bands, parallel, burst, refraction, IOR, glass, lens, snell, distortion, softness, thickness, fresnel, bevel, tilt, venetian blind, tube shape, cylinder
+**Keywords**: bands, diagonal bands, parallel, burst, refraction, IOR, glass, lens, snell, distortion, softness, thickness, fresnel, specular, blur, tilt, venetian blind, band shape, fill, invert
 - Shader: `src/shaders/diagonalBands.glsl`
 - Scene: `scene.js` — `uniformsBands`, `bandsScene`
-- Controls: `controls.js` — `buildGeometrySection`, bandsPanel (tab 1)
-- Uniforms: `uBackground, uTime, uLayerEnabled, uSpeed, uOffset, uSpacing, uAngle, uSoftness, uIOR, uThickness, uFresnel, uTilt, uTilt2, uTiltZ, uTubeShape, uBevelWidth, uBevelIntensity`
-- Burst mode uniforms: `uBurstMode, uBurstCenterX, uBurstCenterY, uRaySpread, uRayLength, uRayIntensity`
+- Controls: `controls.js` — `buildGeometrySection`, bandsPanel
+- Core uniforms: `uBackground, uTime, uLayerEnabled, uSpeed, uOffset, uSpacing, uSoftness, uIOR, uThickness, uFresnel, uDistort, uStep`
+- Glass section uniforms (in `makeAdvanced('Glass')`): `uAngle, uTilt, uTilt2, uTiltZ, uBlur, uBevelWidth (highlight spread), uBevelIntensity (highlight), uTintColor, uTintStrength`
+- Fill uniforms: `uBandInvert` (0=Normal, 1=Invert, 2=Both), `uBandShape` (0=flat, 1=tube, 2=fin — UI removed but uniform preserved)
+- Burst mode uniforms: `uBandsMode, uBurstCenterX, uBurstCenterY, uRaySpread, uRayLength, uRayIntensity`
 - **Tilt X** (`uTilt`): venetian blind rotation around long axis — asymmetric refraction across stripe
 - **Tilt Y** (`uTilt2`): lean forward/backward along stripe length (perp axis)
 - **Tilt Z** (`uTiltZ`, range -1..1): Z normal modulation — steepness gradient, one edge flat / other steep
-- **Tube Shape** (`uTubeShape`, bool toggle in Advanced): flat slab vs cylindrical cross-section. Tube replaces sinusoidal `gradMag` with linear `crossPos * STEEPNESS * 3.0` for continuous glass-rod refraction
+- **Fill** pill row: Normal (default) | Invert (swap glass/gap) | Both (full glass, no gaps)
 - `STEEPNESS = 0.13` hardcoded artistic constant
 - TIR guard: `refract()` returns `vec3(0)` → fallback to `incident`
 
-### GEOMETRY — Cubes (Tile Grid)
-**Keywords**: cubes, tiles, grid, rounded rectangle, SDF, corner radius, square tiles, circular tiles
-- Shader: `src/shaders/cubes.glsl`
-- Scene: `scene.js` — `uniformsCubes`, `cubesScene`
-- Controls: `controls.js` — `buildGeometrySection`, cubesPanel (tab 2, hidden by default)
-- Uniforms: `uBackground, uTime, uLayerEnabled(default false), uSpeed, uOffset, uSpacing, uAngle, uSoftness, uIOR, uThickness, uFresnel, uCornerRadius`
-- **Off by default**; SDF `sdRoundedBox` + analytical gradient; same IOR mechanics as bands
+#### Glass Rendering Pipeline
+The bands shader implements physically-inspired glass rendering:
+1. **Schlick Fresnel** (`schlickFresnel`): `R0 + (1-R0) * (1-cosθ)^5` — edges reflect more, transmit less
+2. **Blinn-Phong specular** (`glassSpecular`): virtual light from upper-left `(0.4, 0.6, 2.0)`, power controlled by `uBevelWidth` (mapped 256→16)
+3. **Multi-tap directional blur** (`blurSample`): 7 taps along surface normal direction, radius scaled by `uBlur * 0.015 * thickMask`
+4. **Tinted glass absorption**: `mix(bg, bg * uTintColor, uTintStrength * thickMask)`
+5. **Compositing**: `tinted + rimLight + specular` (parallel) or `+ rayAdd` (burst)
+
+#### Band Shape Options (uniform preserved, UI removed)
+- `uBandShape = 0` (flat): sinusoidal profile — `gradMag = cos(phase) * STEEPNESS`
+- `uBandShape = 1` (tube): cylindrical — `gradMag = crossPos * STEEPNESS * 3.0`
+- `uBandShape = 2` (fin): tapered ridge — steep at center, flat at edges
 
 ### EFFECTS — Light Streaks (DISABLED)
 **Keywords**: streaks, light streaks, gaussian, glints, highlights, additive, vignette, flicker, parallel streaks, rings
@@ -130,17 +156,19 @@ Semantic lookup for quickly finding and working on specific features. Each entry
 - No `uTime`/`uSpeed` — static screen effect
 
 ### EXPORT — PNG / Video
-**Keywords**: export, png, video, webm, capture, download, sRGB, LUT, color space, loop duration, fps
+**Keywords**: export, png, video, webm, capture, download, sRGB, LUT, color space, loop duration, fps, aspect ratio
 - PNG: `src/utils/export.js` — offscreen renderer, FloatType RT, 4096-entry sRGB LUT, Y-flip
 - Video: `src/utils/exportVideo.js` — `captureStream(0)` + `requestFrame()`, MediaRecorder, loopable WebM
 - Controls: `controls.js` — `buildExportSection`
+- Aspect ratio control: `setAspectRatio(ratio)` — null = free, numeric = locked w/h
+- Export dimensions: `exportDimensions(tier)` — computes w/h from aspect ratio + tier (HD/4K/5K)
 
 ### UI — Controls Panel
-**Keywords**: controls, panel, slider, color picker, ramp, pills, toggle, presets, advanced, dual slider, section
+**Keywords**: controls, panel, slider, color picker, ramp, pills, toggle, advanced, section, glass
 - File: `src/controls/controls.js`
 - Helpers: `makeSlider`, `makeDualSlider`, `makeSingleColor`, `makeColorRamp`, `makeToggle`, `makeAdvanced`
+- `makeAdvanced(buildBody, label = 'Advanced')` — collapsible section with custom label (used as 'Glass' for bands)
 - Panel sections (top to bottom): Layers → Geometry → Rendering → Export
-- `makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, onChangeB)` — two compact sliders side by side (used for tilt X/Y)
 
 ### Pause / Play
 
@@ -169,6 +197,7 @@ During video export, the live `requestAnimationFrame` loop is cancelled manually
 - Produces a loopable WebM; codec priority: `vp9 → vp8 → webm` (picks first supported).
 - `computeLoopDuration(speeds, targetSecs)` snaps to the nearest integer multiple of the fastest active layer's period (`2π / maxSpeed`) so the animation loops seamlessly. `activeSpeeds()` collects `[layer1, layer2, streaks, bands]` speed values.
 - Frame pump uses `setTimeout` at `Math.round(1000 / fps)` ms intervals; final frame waits `ceil(2000 / fps)` ms before `recorder.stop()` to flush the last chunk.
+- Supports canvas-resolution and offscreen 4K export paths.
 
 **Live renderer**:
 - Sets `renderer.outputColorSpace = THREE.SRGBColorSpace` explicitly so Three.js applies linear→sRGB encoding when rendering to the screen canvas.
@@ -177,16 +206,34 @@ During video export, the live `requestAnimationFrame` loop is cancelled manually
 
 `src/controls/controls.js` builds and injects a DOM panel (`position: fixed`) with sliders and pickers bound directly to `uniforms.*` values. No state layer — everything mutates uniforms in-place.
 
-Panel section order: LAYERS (Layer 1 / Layer 2) → GEOMETRY (Bands / Cubes tabs) → RENDERING (Halftone) → EXPORT.
+Panel section order: LAYERS (Layer 1 / Layer 2) → GEOMETRY (Bands) → RENDERING (Halftone) → EXPORT.
 
 Header: "COOL SHADEZ" title + pause/play button (⏸/▶).
 
+Each gradient layer sub-panel has:
+- Mode pills: Radial | Linear | Sweep
+- Speed slider (always visible)
+- Radial group (visible in radial mode): ripple, count, compression sliders
+- Direction slider (visible in linear mode)
+- Sweep group (visible in sweep mode): softness, seam, center sliders
+- Compact color ramp widget
+
+Bands panel has:
+- Mode pills: Parallel | Burst
+- Core sliders: speed, spacing, softness, IOR, thickness, Fresnel, distort
+- Fill pill row: Normal | Invert | Both
+- Step pill row: Normal | Doubled
+- Glass section (collapsible `makeAdvanced('Glass')`): angle, tilt pad (X/Y/Z), blur, highlight spread, highlight, tint color, tint strength
+- Burst-specific controls: center XY, rays, ray length, ray intensity
+
 Video export section has: FPS toggle (30 / 60), duration buttons (3s / 5s / 10s), progress bar. Hovering a duration button previews the exact snapped loop duration (`getLoopDuration(secs).toFixed(1)s`).
 
-Helper functions at the bottom of `controls.js`:
+Helper functions:
 - `makeSlider(label, min, max, value, step, onChange)` — range input row
+- `makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, onChangeB)` — two compact sliders side by side
 - `makeSingleColor(label, uniform)` — single `<input type="color">` bound to a `{ value: THREE.Vector3 }` uniform; converts hex ↔ linear RGB via `THREE.Color`
 - `makeColorRamp(initialStops, onRampChange)` — interactive draggable multi-stop ramp widget (used by layers 1 & 2 only)
+- `makeAdvanced(buildBody, label = 'Advanced')` — collapsible section with custom label
 
 Color ramp widget internals:
 - `stopsFromUniforms(u)` — reads current Float32Array uniforms into `[{pos, color}]`

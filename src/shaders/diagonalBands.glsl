@@ -18,7 +18,9 @@ uniform float     uBevelIntensity;// [0..2]: peak brightness of the bevel glint
 uniform vec3      uTintColor;     // tinted glass absorption color (linear RGB)
 uniform float     uTintStrength;  // [0..1]: tint intensity (0 = clear glass)
 uniform int       uStep;          // 1 = normal (band + gap), 2 = doubled (no gap)
+uniform int       uBandInvert;    // 0 = normal, 1 = invert (swap glass/gap), 2 = both (full glass)
 uniform float     uDistort;       // [0..1]: noise-based band distortion
+uniform float     uBlur;          // [0..1]: glass blur diffusion (multi-tap)
 
 // Mode: 0 = parallel, 1 = burst
 uniform int       uBandsMode;
@@ -50,26 +52,33 @@ float valueNoise(vec2 p) {
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-// ─── Bevel highlight ─────────────────────────────────────────────────────────
-// Shared by both modes. wave is the band/ray height profile [0..1];
-// slope = |cos(phase)| peaks at the edge boundary.
-// Returns the additive glint colour to mix into the final output.
-vec3 bevelGlint(float wave, float slope, vec3 refractedColour) {
-  float edgeDist   = abs(wave - 0.5) * 2.0;
-  float bevelMask  = 1.0 - smoothstep(0.0, max(uBevelWidth, 0.001), edgeDist);
-  float bevelFactor = bevelMask * slope;
-  // 50/50 blend of scene colour and white so the streak reads as a specular
-  // reflection of the environment rather than a flat white overlay.
-  return mix(refractedColour, vec3(1.0), 0.5) * bevelFactor * uBevelIntensity;
+// ─── Schlick Fresnel ─────────────────────────────────────────────────────────
+// Returns reflection coefficient [0..1]. cosTheta = N.z (view-aligned normal).
+float schlickFresnel(float cosTheta, float ior) {
+  float R0 = pow((1.0 - ior) / (1.0 + ior), 2.0);
+  return R0 + (1.0 - R0) * pow(1.0 - cosTheta, 5.0);
 }
 
-// ─── Bevel extra refraction ───────────────────────────────────────────────────
-// Small extra UV nudge at the edge contour — simulates the rounded lip.
-// 0.04 hardcoded artistic constant (same order as STEEPNESS).
-vec2 bevelDisp(float wave, float slope, vec3 refractedDir) {
-  float edgeDist  = abs(wave - 0.5) * 2.0;
-  float bevelMask = 1.0 - smoothstep(0.0, max(uBevelWidth, 0.001), edgeDist);
-  return refractedDir.xy * bevelMask * slope * 0.04;
+// ─── Blinn-Phong specular from virtual light ────────────────────────────────
+// Light from upper-left; H is precomputed constant.
+// specWidth remaps: 0 = tight highlight, 1 = broad soft highlight.
+float glassSpecular(vec3 N, float specWidth) {
+  vec3 H = normalize(vec3(0.4, 0.6, 2.0)); // half-vector: L + V, V = (0,0,1)
+  float NdotH = max(dot(N, H), 0.0);
+  float power = mix(256.0, 16.0, specWidth);
+  return pow(NdotH, power);
+}
+
+// ─── Multi-tap directional blur ─────────────────────────────────────────────
+// Samples background along the surface normal direction, scaled by thickness.
+// 7 taps in a line — cheap directional blur that reads as optical diffusion.
+vec3 blurSample(vec2 baseUV, vec2 blurDir, float radius) {
+  vec3 sum = vec3(0.0);
+  for (int i = 0; i < 7; i++) {
+    float fi = (float(i) - 3.0) / 3.0; // -1..1
+    sum += texture2D(uBackground, baseUV + blurDir * fi * radius).rgb;
+  }
+  return sum / 7.0;
 }
 
 void main() {
@@ -86,7 +95,7 @@ void main() {
     // Noise-based distortion: gently warps band positions
     float distortN = (valueNoise(vUv * 4.0 + uTime * 0.15) - 0.5) * 2.0;
     float phase = proj * uSpacing * 6.28318 + uTime * uSpeed + uOffset
-                + distortN * uDistort * 2.5;
+                + distortN * uDistort * 8.0;
 
     // Step 1: normal sine (band + gap). Step 2: abs(sin) doubles bands, no gap.
     float wave;
@@ -95,8 +104,15 @@ void main() {
     } else {
       wave = sin(phase) * 0.5 + 0.5;
     }
+    // Invert: swap glass and gap regions
+    if (uBandInvert == 1) wave = 1.0 - wave;
+
     float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
+
+    // Both: entire surface is glass — no gaps
+    if (uBandInvert == 2) bandMask = 1.0;
+
     float thickMask = mix(bandMask, wave, uThickness);
 
     // Tilt: rotate each band like a venetian blind.
@@ -133,20 +149,32 @@ void main() {
     vec3  refracted = refract(incident, N, eta);
     if (length(refracted) < 0.001) refracted = incident;
 
-    float slope        = abs(cos(phase));
-    float fresnelAtten = 1.0 - uFresnel * slope * slope;
+    // Schlick Fresnel: edges reflect more, transmit less
+    float cosTheta    = max(N.z, 0.0);
+    float fresnel     = schlickFresnel(cosTheta, uIOR);
+    float transmission = 1.0 - fresnel * uFresnel;
 
-    vec2 displacement = refracted.xy * thickMask * fresnelAtten;
-    vec2 totalDisp    = displacement + bevelDisp(wave, slope, refracted);
+    // Refracted background with directional blur
+    vec2  baseDisp   = refracted.xy * thickMask * transmission;
+    float blurRadius = thickMask * uBlur * 0.015;
+    vec3  bg;
+    if (blurRadius > 0.0001) {
+      bg = blurSample(vUv + baseDisp, N.xy, blurRadius);
+    } else {
+      bg = texture2D(uBackground, vUv + baseDisp).rgb;
+    }
 
-    vec4 bg    = texture2D(uBackground, vUv + totalDisp);
+    // Tinted glass absorption — stronger through thick glass
+    vec3 tinted = mix(bg, bg * uTintColor, uTintStrength * thickMask);
 
-    // Tinted glass: absorb color based on optical thickness (thickMask).
-    // At band center (thickest glass) tint is strongest; edges are clear.
-    vec3 tinted = mix(bg.rgb, bg.rgb * uTintColor, uTintStrength * thickMask);
+    // Fresnel rim light — bright edge reflection
+    vec3 rimLight = vec3(fresnel * uFresnel * 0.5) * thickMask;
 
-    vec3 glint = bevelGlint(wave, slope, tinted);
-    gl_FragColor = vec4(tinted + glint, bg.a);
+    // Blinn-Phong specular highlight from virtual light
+    float spec = glassSpecular(N, uBevelWidth);
+    vec3 specular = vec3(0.9, 0.95, 1.0) * spec * uBevelIntensity * fresnel * thickMask;
+
+    gl_FragColor = vec4(tinted + rimLight + specular, 1.0);
 
   } else {
     // ─── BURST MODE ────────────────────────────────────────────────────────
@@ -169,7 +197,7 @@ void main() {
     // Angular phase → uRaySpread positive lobes = uRaySpread rays in 360°.
     float distortN = (valueNoise(vUv * 4.0 + uTime * 0.15) - 0.5) * 2.0;
     float phase = angle * uRaySpread + uTime * uSpeed + uOffset
-                + distortN * uDistort * 2.5;
+                + distortN * uDistort * 8.0;
 
     float wave;
     if (uStep == 2) {
@@ -177,8 +205,15 @@ void main() {
     } else {
       wave = sin(phase) * 0.5 + 0.5;
     }
+    // Invert: swap glass and gap regions
+    if (uBandInvert == 1) wave = 1.0 - wave;
+
     float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
+
+    // Both: entire surface is glass — no gaps
+    if (uBandInvert == 2) bandMask = 1.0;
+
     float thickMask = mix(bandMask, wave, uThickness);
 
     // Radial fade: smooth rise from the center singularity, smooth fall at
@@ -214,24 +249,35 @@ void main() {
     vec3  refracted = refract(incident, N, eta);
     if (length(refracted) < 0.001) refracted = incident;
 
-    float fresnelAtten = 1.0 - uFresnel * slope * slope;
+    // Schlick Fresnel
+    float cosTheta    = max(N.z, 0.0);
+    float fresnel     = schlickFresnel(cosTheta, uIOR);
+    float transmission = 1.0 - fresnel * uFresnel;
 
-    // Apply radialFade so refraction and bevel vanish where rays do.
-    vec2 displacement = refracted.xy * thickMask * fresnelAtten * radialFade;
-    vec2 totalDisp    = displacement + bevelDisp(wave, slope, refracted) * radialFade;
-
-    vec4 bg    = texture2D(uBackground, vUv + totalDisp);
+    // Refracted background with directional blur, faded by radial extent
+    vec2  baseDisp   = refracted.xy * thickMask * transmission * radialFade;
+    float blurRadius = thickMask * uBlur * 0.015 * radialFade;
+    vec3  bg;
+    if (blurRadius > 0.0001) {
+      bg = blurSample(vUv + baseDisp, N.xy, blurRadius);
+    } else {
+      bg = texture2D(uBackground, vUv + baseDisp).rgb;
+    }
 
     // Tinted glass absorption
-    vec3 tinted = mix(bg.rgb, bg.rgb * uTintColor, uTintStrength * thickMask * radialFade);
+    vec3 tinted = mix(bg, bg * uTintColor, uTintStrength * thickMask * radialFade);
 
-    vec3 glint = bevelGlint(wave, slope, tinted) * radialFade;
+    // Fresnel rim light
+    vec3 rimLight = vec3(fresnel * uFresnel * 0.5) * thickMask * radialFade;
 
-    // Ray intensity: additive brightness inside each ray streak.
+    // Blinn-Phong specular
+    float spec = glassSpecular(N, uBevelWidth);
+    vec3 specular = vec3(0.9, 0.95, 1.0) * spec * uBevelIntensity * fresnel * thickMask * radialFade;
+
+    // Ray intensity: additive brightness inside each ray streak
     float rayFactor = bandMask * radialFade * uRayIntensity;
     vec3  rayAdd    = mix(tinted, vec3(1.0), 0.35) * rayFactor * 0.4;
 
-    vec3 burstColor = tinted + rayAdd + glint;
-    gl_FragColor = vec4(burstColor, bg.a);
+    gl_FragColor = vec4(tinted + rimLight + specular + rayAdd, 1.0);
   }
 }

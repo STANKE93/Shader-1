@@ -782,12 +782,12 @@ function fmtVal(v, step) {
 
 // ─── Advanced disclosure ──────────────────────────────────────────────────────
 
-function makeAdvanced(buildBody) {
+function makeAdvanced(buildBody, label = 'Advanced') {
   const wrap = document.createElement('div')
 
   const toggle = document.createElement('div')
   toggle.className = 'cs-adv-toggle'
-  toggle.innerHTML = `<div class="cs-adv-line"></div><span class="cs-adv-label">Advanced ▼</span><div class="cs-adv-line"></div>`
+  toggle.innerHTML = `<div class="cs-adv-line"></div><span class="cs-adv-label">${label} ▼</span><div class="cs-adv-line"></div>`
 
   const body = document.createElement('div')
   body.className = 'cs-adv-body hidden'
@@ -797,7 +797,7 @@ function makeAdvanced(buildBody) {
   toggle.addEventListener('click', () => {
     open = !open
     body.classList.toggle('hidden', !open)
-    toggle.querySelector('.cs-adv-label').textContent = open ? 'Advanced ▲' : 'Advanced ▼'
+    toggle.querySelector('.cs-adv-label').textContent = open ? `${label} ▲` : `${label} ▼`
   })
 
   wrap.appendChild(toggle)
@@ -1124,6 +1124,13 @@ function buildGradientLayerSub(label, u, layerKey) {
       Math.round(u.uDriftAngle.value * 180 / Math.PI), 1,
       v => { u.uDriftAngle.value = v * Math.PI / 180 })
 
+    // Radial-specific controls
+    const radialGroup = document.createElement('div')
+    radialGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+    radialGroup.appendChild(makeSlider('ripple', 0, 1, u.uRipple.value, 0.01, v => { u.uRipple.value = v }))
+    radialGroup.appendChild(makeSlider('count', 1, 20, u.uRippleCount.value, 0.5, v => { u.uRippleCount.value = v }))
+    radialGroup.appendChild(makeSlider('compression', 0.01, 20, u.uRippleCompress.value, 0.1, v => { u.uRippleCompress.value = v }))
+
     // Sweep-specific controls
     const sweepGroup = document.createElement('div')
     sweepGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
@@ -1134,58 +1141,14 @@ function buildGradientLayerSub(label, u, layerKey) {
     sweepGroup.appendChild(makeSlider('center', 0, 1, u.uSweepCenter.value, 0.01,
       v => { u.uSweepCenter.value = v }))
 
-    // Noise preset pills — replace individual noise sliders
-    const noisePresetRow = document.createElement('div')
-    noisePresetRow.className = 'cs-field-row'
-    noisePresetRow.style.display = 'none'
-    const noisePresetLbl = document.createElement('span')
-    noisePresetLbl.className = 'cs-field-label'
-    noisePresetLbl.textContent = 'Style'
-    const noisePresetPills = document.createElement('div')
-    noisePresetPills.className = 'cs-pills'
-
-    const noisePresets = {
-      subtle:   { scale: 1.5, detail: 1.5, dimension: 1.8, depth: 0.4, liqStr: 0.08, liqScale: 1.0, liqSpeed: 0.05 },
-      contrast: { scale: 3.0, detail: 2.5, dimension: 0.8, depth: 0.7, liqStr: 0.3,  liqScale: 1.5, liqSpeed: 0.12 },
-    }
-
-    function applyNoisePreset(name) {
-      const p = noisePresets[name]
-      u.uNoiseScale.value      = p.scale
-      u.uDetail.value          = p.detail
-      u.uDimension.value       = p.dimension
-      u.uNoiseDepth.value      = p.depth
-      u.uLiquifyStrength.value = p.liqStr
-      u.uLiquifyScale.value    = p.liqScale
-      u.uLiquifySpeed.value    = p.liqSpeed
-      subtleBtn.classList.toggle('active', name === 'subtle')
-      contrastBtn.classList.toggle('active', name === 'contrast')
-    }
-
-    const subtleBtn = document.createElement('button')
-    subtleBtn.className = 'cs-pill active'
-    subtleBtn.textContent = 'Subtle'
-    subtleBtn.addEventListener('click', () => applyNoisePreset('subtle'))
-
-    const contrastBtn = document.createElement('button')
-    contrastBtn.className = 'cs-pill'
-    contrastBtn.textContent = 'Contrast'
-    contrastBtn.addEventListener('click', () => applyNoisePreset('contrast'))
-
-    noisePresetPills.appendChild(subtleBtn)
-    noisePresetPills.appendChild(contrastBtn)
-    noisePresetRow.appendChild(noisePresetLbl)
-    noisePresetRow.appendChild(noisePresetPills)
-
     function syncMode() {
       const mode = u.uMode.value
       radial_.classList.toggle('active', mode === 0)
       linear_.classList.toggle('active', mode === 1)
-      noise_.classList.toggle('active', mode === 2)
-      sweep_.classList.toggle('active', mode === 3)
+      sweep_.classList.toggle('active', mode === 2)
+      radialGroup.style.display = mode === 0 ? 'flex' : 'none'
       dirRow.style.display = mode === 1 ? '' : 'none'
-      noisePresetRow.style.display = mode === 2 ? 'flex' : 'none'
-      sweepGroup.style.display = mode === 3 ? 'flex' : 'none'
+      sweepGroup.style.display = mode === 2 ? 'flex' : 'none'
     }
 
     const radial_ = document.createElement('button')
@@ -1198,36 +1161,25 @@ function buildGradientLayerSub(label, u, layerKey) {
     linear_.textContent = 'Linear'
     linear_.addEventListener('click', () => { u.uMode.value = 1; syncMode() })
 
-    const noise_ = document.createElement('button')
-    noise_.className = 'cs-pill'
-    noise_.textContent = 'Noise'
-    noise_.addEventListener('click', () => { u.uMode.value = 2; syncMode() })
-
     const sweep_ = document.createElement('button')
     sweep_.className = 'cs-pill'
     sweep_.textContent = 'Sweep'
-    sweep_.addEventListener('click', () => { u.uMode.value = 3; syncMode() })
+    sweep_.addEventListener('click', () => { u.uMode.value = 2; syncMode() })
 
     pills.appendChild(radial_)
     pills.appendChild(linear_)
-    pills.appendChild(noise_)
     pills.appendChild(sweep_)
     modeRow.appendChild(modeLbl)
     modeRow.appendChild(pills)
     body.appendChild(modeRow)
 
     body.appendChild(makeSlider('speed', 0.05, 2, u.uSpeed.value, 0.01, v => { u.uSpeed.value = v }))
+    body.appendChild(radialGroup)
     body.appendChild(dirRow)
-    body.appendChild(noisePresetRow)
     body.appendChild(sweepGroup)
 
     // Compact color ramp
     body.appendChild(makeCompactRamp(stopsFromUniforms(u), stops => applyRamp(stops, u), label))
-
-    // Advanced: offset
-    body.appendChild(makeAdvanced(adv => {
-      adv.appendChild(makeSlider('offset', 0, 6.28, u.uOffset.value, 0.01, v => { u.uOffset.value = v }))
-    }))
 
     _regLayer = null
     syncMode()
@@ -1281,15 +1233,12 @@ function buildGeometrySection(uniforms) {
       stepRow.appendChild(stepLbl)
       stepRow.appendChild(stepPills)
       parallelGroup.appendChild(stepRow)
-      parallelGroup.appendChild(makeSlider('angle°',  0, 360, Math.round(ub.uAngle.value * 180 / Math.PI), 1, v => { ub.uAngle.value = v * Math.PI / 180 }))
-      parallelGroup.appendChild(makeTiltPad(ub.uTilt, ub.uTilt2, ub.uTiltZ))
 
       // Burst-only controls
       const burstGroup = document.createElement('div')
       burstGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
       burstGroup.appendChild(makeSlider('angle°',    0,   360,  Math.round(ub.uOffset.value * 180 / Math.PI), 1, v => { ub.uOffset.value = v * Math.PI / 180 }))
       burstGroup.appendChild(makeSlider('intensity', 0,   2,    ub.uRayIntensity.value, 0.01, v => { ub.uRayIntensity.value = v }))
-      burstGroup.appendChild(makeTiltPad(ub.uTilt, ub.uTilt2, ub.uTiltZ))
 
       function syncBandsMode() {
         const m = ub.uBandsMode.value
@@ -1317,43 +1266,46 @@ function buildGeometrySection(uniforms) {
       sub.appendChild(parallelGroup)
       sub.appendChild(burstGroup)
 
+      // Invert pills: Normal | Invert | Both — shared by both modes
+      const invertRow = document.createElement('div')
+      invertRow.className = 'cs-field-row'
+      const invertLbl = document.createElement('span')
+      invertLbl.className = 'cs-field-label'
+      invertLbl.textContent = 'Fill'
+      const invertPills = document.createElement('div')
+      invertPills.className = 'cs-pills'
+      const invertNames = ['Normal', 'Invert', 'Both']
+      const invertBtns = invertNames.map((name, i) => {
+        const btn = document.createElement('button')
+        btn.className = 'cs-pill' + (ub.uBandInvert.value === i ? ' active' : '')
+        btn.textContent = name
+        btn.addEventListener('click', () => { ub.uBandInvert.value = i; syncInvert() })
+        invertPills.appendChild(btn)
+        return btn
+      })
+      function syncInvert() {
+        invertBtns.forEach((btn, i) => btn.classList.toggle('active', ub.uBandInvert.value === i))
+      }
+      invertRow.appendChild(invertLbl)
+      invertRow.appendChild(invertPills)
+      sub.appendChild(invertRow)
+
       // Speed, distortion, and Advanced shared by both modes
       sub.appendChild(makeSlider('speed', 0, 2, ub.uSpeed.value, 0.01, v => { ub.uSpeed.value = v }))
       sub.appendChild(makeSlider('distort', 0, 1, ub.uDistort.value, 0.01, v => { ub.uDistort.value = v }))
       sub.appendChild(makeAdvanced(adv => {
-        // Band shape toggle: Flat / Tube / Fin
-        const shapeRow = document.createElement('div')
-        shapeRow.className = 'cs-field-row'
-        const shapeLbl = document.createElement('span')
-        shapeLbl.className = 'cs-field-label'
-        shapeLbl.textContent = 'Shape'
-        const shapePills = document.createElement('div')
-        shapePills.className = 'cs-pills'
-        const shapeNames = ['Flat', 'Tube', 'Fin']
-        const shapeBtns = shapeNames.map((name, i) => {
-          const btn = document.createElement('button')
-          btn.className = 'cs-pill' + (ub.uBandShape.value === i ? ' active' : '')
-          btn.textContent = name
-          btn.addEventListener('click', () => { ub.uBandShape.value = i; syncShape() })
-          shapePills.appendChild(btn)
-          return btn
-        })
-        function syncShape() {
-          shapeBtns.forEach((btn, i) => btn.classList.toggle('active', ub.uBandShape.value === i))
-        }
-        shapeRow.appendChild(shapeLbl)
-        shapeRow.appendChild(shapePills)
-        adv.appendChild(shapeRow)
-
+        adv.appendChild(makeSlider('angle°',  0, 360, Math.round(ub.uAngle.value * 180 / Math.PI), 1, v => { ub.uAngle.value = v * Math.PI / 180 }))
+        adv.appendChild(makeTiltPad(ub.uTilt, ub.uTilt2, ub.uTiltZ))
         adv.appendChild(makeSlider('softness',        0.01, 1,   ub.uSoftness.value,       0.01, v => { ub.uSoftness.value       = v }))
         adv.appendChild(makeSlider('IOR',             1.0,  3.0, ub.uIOR.value,            0.01, v => { ub.uIOR.value            = v }))
         adv.appendChild(makeSlider('thickness',       0,    1,   ub.uThickness.value,      0.01, v => { ub.uThickness.value      = v }))
+        adv.appendChild(makeSlider('blur',            0,    1,   ub.uBlur.value,           0.01, v => { ub.uBlur.value           = v }))
         adv.appendChild(makeSlider('fresnel',         0,    1,   ub.uFresnel.value,        0.01, v => { ub.uFresnel.value        = v }))
-        adv.appendChild(makeSlider('bevel width',     0,    1,   ub.uBevelWidth.value,     0.01, v => { ub.uBevelWidth.value     = v }))
-        adv.appendChild(makeSlider('bevel intensity', 0,    2,   ub.uBevelIntensity.value, 0.01, v => { ub.uBevelIntensity.value = v }))
+        adv.appendChild(makeSlider('highlight spread',0,    1,   ub.uBevelWidth.value,     0.01, v => { ub.uBevelWidth.value     = v }))
+        adv.appendChild(makeSlider('highlight',       0,    2,   ub.uBevelIntensity.value, 0.01, v => { ub.uBevelIntensity.value = v }))
         adv.appendChild(makeSingleColor('tint color', ub.uTintColor))
         adv.appendChild(makeSlider('tint strength',   0,    1,   ub.uTintStrength.value,   0.01, v => { ub.uTintStrength.value   = v }))
-      }))
+      }, 'Glass'))
 
       syncBandsMode()
       _regLayer = null

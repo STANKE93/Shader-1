@@ -132,15 +132,11 @@ export function createScene(canvas) {
     uSpeed:         { value: 0.4 },
     uOffset:        { value: 0.0 },
     uResolution:    { value: resolution },
-    uMode:             { value: 1 },               // 0=radial, 1=linear, 2=noise
+    uMode:             { value: 1 },               // 0=radial, 1=linear, 2=sweep
     uDriftAngle:       { value: Math.PI * 0.25 }, // 45° diagonal (linear mode only)
-    uNoiseScale:       { value: 2.0 },            // noise patch frequency (noise mode only)
-    uDetail:           { value: 2.0 },            // Musgrave octave count (1–3)
-    uDimension:        { value: 1.5 },            // fractal dimension H (0.5–2, higher = smoother)
-    uNoiseDepth:       { value: 0.0 },            // emboss lighting intensity (0 = flat)
-    uLiquifyStrength:  { value: 0.15 },           // domain-warp magnitude in UV units
-    uLiquifyScale:     { value: 1.2 },            // flow field spatial frequency (coarser than noise)
-    uLiquifySpeed:     { value: 0.08 },           // flow field drift rate (independent of uSpeed)
+    uRipple:           { value: 0.0 },            // radial ripple refraction depth
+    uRippleCount:      { value: 7.0 },            // ring density multiplier
+    uRippleCompress:   { value: 6.0 },            // sqrt compression factor
     uSweepSeam:        { value: 0.0 },            // sweep back-seam softness (0 = sharp, 1 = soft)
     uSweepCenter:      { value: 0.0 },            // center blur radius (0 = sharp, 1 = soft)
   }
@@ -158,15 +154,11 @@ export function createScene(canvas) {
     uSpeed:         { value: 0.6 },
     uOffset:        { value: 1.5 },
     uResolution:    { value: resolution },
-    uMode:             { value: 0 },     // 0=radial, 1=linear, 2=noise
+    uMode:             { value: 0 },     // 0=radial, 1=linear, 2=sweep
     uDriftAngle:       { value: 0.0 },  // rightward (linear mode only)
-    uNoiseScale:       { value: 2.0 },  // noise patch frequency (noise mode only)
-    uDetail:           { value: 2.0 },  // Musgrave octave count (1–3)
-    uDimension:        { value: 1.5 },  // fractal dimension H (0.5–2, higher = smoother)
-    uNoiseDepth:       { value: 0.0 },  // emboss lighting intensity (0 = flat)
-    uLiquifyStrength:  { value: 0.15 }, // domain-warp magnitude in UV units
-    uLiquifyScale:     { value: 1.2 },  // flow field spatial frequency
-    uLiquifySpeed:     { value: 0.08 }, // flow field drift rate
+    uRipple:           { value: 0.0 },  // radial ripple refraction depth
+    uRippleCount:      { value: 7.0 },  // ring density multiplier
+    uRippleCompress:   { value: 6.0 },  // sqrt compression factor
     uSweepSeam:        { value: 0.0 },  // sweep back-seam softness (0 = sharp, 1 = soft)
     uSweepCenter:      { value: 0.0 },  // center blur radius (0 = sharp, 1 = soft)
   }
@@ -223,7 +215,9 @@ export function createScene(canvas) {
     uTintColor:       { value: new THREE.Vector3(1.0, 1.0, 1.0) }, // tinted glass color (linear RGB)
     uTintStrength:    { value: 0.0 },  // tint intensity (0 = clear glass)
     uStep:            { value: 1 },    // 1 = band + gap, 2 = doubled (no gap)
+    uBandInvert:      { value: 0 },    // 0 = normal, 1 = invert, 2 = both
     uDistort:         { value: 0.0 },  // [0..1]: noise-based band distortion
+    uBlur:            { value: 0.0 },  // [0..1]: glass blur diffusion
     // Mode: 0 = parallel, 1 = burst
     uBandsMode:       { value: 0 },
     uBurstCenterX:    { value: 0.5 },
