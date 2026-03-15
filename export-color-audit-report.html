@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Cool Shadez — Export Color Pipeline Audit Report</title>
+<style>
+  body { font-family: 'Segoe UI', system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.6; }
+  h1 { border-bottom: 3px solid #222; padding-bottom: 8px; }
+  h2 { margin-top: 2em; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+  h3 { color: #555; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+  th { background: #f0f0f0; }
+  code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; }
+  pre { background: #f4f4f4; padding: 12px; border-radius: 5px; overflow-x: auto; font-size: 0.85em; }
+  .severity-medium { color: #c05000; font-weight: bold; }
+  .severity-low { color: #997700; font-weight: bold; }
+  .severity-ok { color: #2a7a2a; font-weight: bold; }
+  .severity-info { color: #4466aa; font-weight: bold; }
+  ul li { margin: 4px 0; }
+  .date { color: #777; font-size: 0.9em; }
+</style>
+</head>
+<body>
+
+<h1>Cool Shadez — Export Color Pipeline Audit Report</h1>
+<p class="date">Date: March 14, 2026</p>
+
+<h2>1. Scope</h2>
+<p>Full audit of the render-to-export color pipeline to identify any color mismatch between the live viewport and exported output (PNG and video WebM).</p>
+
+<h3>Files Reviewed</h3>
+<ul>
+  <li><code>src/scene.js</code> — multi-pass renderer, animation loop, export orchestration</li>
+  <li><code>src/utils/export.js</code> — PNG export: offscreen renderer, sRGB LUT, Y-flip</li>
+  <li><code>src/utils/exportVideo.js</code> — WebM video export via captureStream + MediaRecorder</li>
+  <li><code>src/shaders/halftone.glsl</code> — halftone pass (luminance calculation)</li>
+  <li><code>src/controls/controls.js</code> — color ramp widget, hex conversion</li>
+</ul>
+
+<h2>2. Color Pipeline Overview</h2>
+<pre>
+Color Ramp Hex (sRGB)
+  → THREE.Color (sRGB → linear)
+  → Float32Array uniform
+  → GLSL shader (linear math)
+  → Pass 1: bgScene → rt1 (linear, no encoding)
+  → Pass 2: bandsScene → rt2 (linear, no encoding)
+  → Pass 3: halftoneScene → screen or export RT
+
+LIVE:   outputColorSpace = SRGBColorSpace → Three.js injects linear→sRGB on final pass
+PNG:    no outputColorSpace → FloatType RT → Float32Array → 4096-entry LUT → sRGB manually
+VIDEO:  outputColorSpace = SRGBColorSpace → captureStream(0) captures sRGB canvas
+</pre>
+
+<h2>3. Findings Summary</h2>
+
+<table>
+  <tr><th>#</th><th>Severity</th><th>File</th><th>Description</th></tr>
+  <tr>
+    <td>1</td>
+    <td><span class="severity-medium">Medium</span></td>
+    <td><code>scene.js:114–118</code></td>
+    <td>Live RTs use UnsignedByteType (8-bit) while export uses HalfFloatType — HDR clipping mismatch in bright additive regions</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td><span class="severity-low">Low-Medium</span></td>
+    <td><code>controls.js:1672</code></td>
+    <td><code>rgbToHex</code> packs linear values directly as hex without applying the sRGB transfer — CSS ramp preview shows wrong colors; potential round-trip darkening</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td><span class="severity-ok">OK</span></td>
+    <td><code>export.js:4–18</code></td>
+    <td>sRGB LUT (4096 entries, IEC 61966-2-1 piecewise function) correctly implemented</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td><span class="severity-ok">OK</span></td>
+    <td><code>export.js:43</code></td>
+    <td>PNG export renderer correctly omits <code>outputColorSpace</code> — no double sRGB encoding</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td><span class="severity-ok">OK</span></td>
+    <td><code>export.js:52</code></td>
+    <td>FloatType render target for readback preserves full linear precision</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td><span class="severity-ok">OK</span></td>
+    <td><code>scene.js:267–273</code></td>
+    <td><code>renderPasses</code> correctly switches color space per pass (LinearSRGB for intermediate, SRGB for final-to-screen)</td>
+  </tr>
+  <tr>
+    <td>7</td>
+    <td><span class="severity-ok">OK</span></td>
+    <td><code>exportVideo.js:28</code></td>
+    <td><code>captureStream(0)</code> + <code>requestFrame()</code> — frame-accurate, no timer drift</td>
+  </tr>
+  <tr>
+    <td>8</td>
+    <td><span class="severity-ok">OK</span></td>
+    <td><code>halftone.glsl:29</code></td>
+    <td>Rec. 709 luminance coefficients correctly applied to linear-space values</td>
+  </tr>
+  <tr>
+    <td>9</td>
+    <td><span class="severity-info">Info</span></td>
+    <td><code>scene.js:434</code></td>
+    <td>Time discontinuity after video export (animation jumps when live loop resumes while unpaused)</td>
+  </tr>
+</table>
+
+<h2>4. Detailed Issue Descriptions</h2>
+
+<h3>ISSUE 1: Live render targets use UnsignedByteType (8-bit clipping)</h3>
+<p><strong>Severity:</strong> <span class="severity-medium">Medium</span> &nbsp;|&nbsp; <strong>File:</strong> <code>src/scene.js</code>, lines 114–118</p>
+
+<p><strong>Problem:</strong> The live viewport's intermediate render targets (<code>rt1</code>, <code>rt2</code>) are created with the default <code>UnsignedByteType</code> (8-bit per channel). Layer 2 uses <code>AdditiveBlending</code>, which can produce values above 1.0 in linear space. These get clamped to 255 in the 8-bit RT, losing HDR highlight detail.</p>
+
+<p>Meanwhile, the PNG and video export paths create their intermediate RTs with <code>HalfFloatType</code>, which preserves the full HDR range. This means bright, saturated areas where additive blending pushes channels above 1.0 will look <strong>different</strong> between live and export.</p>
+
+<p><strong>Current code:</strong></p>
+<pre>const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format:    THREE.RGBAFormat,
+})</pre>
+
+<p><strong>Fix:</strong> Add <code>type: THREE.HalfFloatType</code> to the live RTs to match the export precision:</p>
+<pre>const makeRT = (w, h) => new THREE.WebGLRenderTarget(w, h, {
+    minFilter: THREE.LinearFilter,
+    magFilter: THREE.LinearFilter,
+    format:    THREE.RGBAFormat,
+    type:      THREE.HalfFloatType,
+})</pre>
+
+<p><strong>Impact:</strong> Eliminates the primary remaining source of live-vs-export color difference. Minimal GPU cost on modern hardware.</p>
+
+<hr>
+
+<h3>ISSUE 2: <code>rgbToHex</code> skips linear-to-sRGB transfer</h3>
+<p><strong>Severity:</strong> <span class="severity-low">Low-Medium</span> &nbsp;|&nbsp; <strong>File:</strong> <code>src/controls/controls.js</code>, line 1672</p>
+
+<p><strong>Problem:</strong> The <code>rgbToHex</code> helper converts linear RGB floats directly to hex bytes without applying the sRGB transfer function. This is called from <code>stopsFromUniforms</code> when reading current ramp data, causing two issues:</p>
+<ul>
+  <li>The CSS gradient preview bar in the ramp widget shows <strong>incorrect (brighter) colors</strong> because linear values are interpreted as sRGB.</li>
+  <li>If ramp stops are read via <code>stopsFromUniforms</code> and then written back via <code>applyRamp</code>, a <strong>double-linearization</strong> occurs: the already-linear value gets packed into hex as if it were sRGB, then <code>THREE.Color</code> applies sRGB→linear again, progressively darkening colors on each round-trip.</li>
+</ul>
+
+<p><strong>Current code:</strong></p>
+<pre>function rgbToHex(r, g, b) {
+    const h = v => Math.round(Math.min(Math.max(v, 0), 1) * 255)
+                   .toString(16).padStart(2, '0')
+    return `#${h(r)}${h(g)}${h(b)}`
+}</pre>
+
+<p><strong>Fix:</strong> Apply the standard sRGB transfer function before packing:</p>
+<pre>function rgbToHex(r, g, b) {
+    const toSRGB = v => v <= 0.0031308
+        ? v * 12.92
+        : 1.055 * Math.pow(v, 1/2.4) - 0.055
+    const h = v => Math.round(Math.min(Math.max(toSRGB(v), 0), 1) * 255)
+                   .toString(16).padStart(2, '0')
+    return `#${h(r)}${h(g)}${h(b)}`
+}</pre>
+
+<hr>
+
+<h3>INFO: Time discontinuity after video export</h3>
+<p><strong>Severity:</strong> <span class="severity-info">Informational</span> &nbsp;|&nbsp; <strong>File:</strong> <code>src/scene.js</code>, line 434</p>
+<p>After video export completes and the live loop resumes, the animation jumps because <code>timeOffset</code> was not adjusted to account for wall-clock time spent during export. Not a color issue, but a noticeable visual artifact.</p>
+
+<h2>5. What Was Verified Correct</h2>
+<ul>
+  <li><strong>sRGB LUT</strong> — 4096-entry IEC 61966-2-1 piecewise function, 12-bit quantization, error &le; 0.4 output units</li>
+  <li><strong>PNG export renderer</strong> — intentionally omits <code>outputColorSpace</code>; no double sRGB encoding</li>
+  <li><strong>FloatType readback RT</strong> — <code>Float32Array</code> preserves full linear precision for PNG export</li>
+  <li><strong>renderPasses color space switching</strong> — intermediate passes stay <code>LinearSRGBColorSpace</code>; final pass uses <code>SRGBColorSpace</code> only when rendering to screen (not to export RT)</li>
+  <li><strong>Video frame capture</strong> — <code>captureStream(0)</code> + <code>requestFrame()</code> is frame-accurate at any FPS</li>
+  <li><strong>preserveDrawingBuffer</strong> — set on both live and offscreen renderers</li>
+  <li><strong>HalfFloatType export RTs</strong> — export intermediate RTs use <code>HalfFloatType</code> for HDR headroom</li>
+  <li><strong>Halftone luminance</strong> — Rec. 709 coefficients correctly applied to linear-space input</li>
+  <li><strong>THREE.Color management</strong> — <code>ColorManagement.enabled = true</code> by default; hex→linear conversions in ramp setup are correct</li>
+</ul>
+
+<h2>6. Recommended Priority</h2>
+<ol>
+  <li><strong>Issue 1 (live RT type)</strong> — Primary remaining mismatch source. One-line fix, high impact.</li>
+  <li><strong>Issue 2 (rgbToHex)</strong> — Fixes CSS ramp preview accuracy and prevents potential color drift in preset/programmatic workflows.</li>
+</ol>
+
+<h2>7. Actions Performed</h2>
+<ul>
+  <li>Read and audited <code>src/scene.js</code> — renderer setup, RT creation, <code>renderPasses</code>, <code>exportPNG</code>, <code>exportVideo</code></li>
+  <li>Read and audited <code>src/utils/export.js</code> — offscreen renderer, sRGB LUT implementation, FloatType RT, Y-flip</li>
+  <li>Read and audited <code>src/utils/exportVideo.js</code> — captureStream, requestFrame, MediaRecorder codec selection</li>
+  <li>Read and audited <code>src/shaders/halftone.glsl</code> — luminance calculation color space correctness</li>
+  <li>Read and audited <code>src/controls/controls.js</code> — <code>rgbToHex</code>, <code>stopsFromUniforms</code>, <code>applyRamp</code>, color ramp widget round-trip</li>
+  <li>Verified color space transitions across all 3 render passes for both live and export paths</li>
+  <li>Verified sRGB LUT math against IEC 61966-2-1 specification</li>
+  <li>Checked <code>THREE.ColorManagement</code> behavior with Three.js 0.172 defaults</li>
+</ul>
+
+</body>
+</html>
