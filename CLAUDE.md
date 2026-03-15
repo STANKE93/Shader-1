@@ -36,7 +36,7 @@ Pass 2: bandsScene    → rt2    (Diagonal Bands reads rt1 as uBackground)
 Pass 3: halftoneScene → screen (Halftone reads rt2 as uBackground)
 ```
 
-`renderPasses(r, bgRT1, bgRT2, w, h, outputRT = null)` is shared between the live loop and both export paths (PNG and video) so all three produce identical output. The optional `outputRT` redirects the final pass to a render target instead of the screen.
+`renderPasses(r, bgRT1, bgRT2, w, h, outputRT = null)` is shared between the live loop and both export paths (PNG and video) so all three produce identical output. All paths render the final pass to the screen canvas (`outputRT = null`). The `outputRT` parameter exists for potential future use but is not currently used.
 
 ### Data Flow
 
@@ -157,7 +157,7 @@ The bands shader implements physically-inspired glass rendering:
 
 ### EXPORT — PNG / Video
 **Keywords**: export, png, video, webm, capture, download, sRGB, LUT, color space, loop duration, fps, aspect ratio
-- PNG: `src/utils/export.js` — offscreen renderer, FloatType RT, 4096-entry sRGB LUT, Y-flip
+- PNG: `src/utils/export.js` — offscreen renderer, renders to canvas, `toDataURL('image/png')`
 - Video: `src/utils/exportVideo.js` — `captureStream(0)` + `requestFrame()`, MediaRecorder, loopable WebM
 - Controls: `controls.js` — `buildExportSection`
 - Aspect ratio control: `setAspectRatio(ratio)` — null = free, numeric = locked w/h
@@ -184,12 +184,10 @@ During video export, the live `requestAnimationFrame` loop is cancelled manually
 ### Export
 
 **PNG** (`src/utils/export.js`):
-- Creates an offscreen `WebGLRenderer` with **no `outputColorSpace` set** (intentional — all passes render into RTs, so Three.js must not inject sRGB encoding; we apply it manually).
-- Final pass renders into a `FloatType` `WebGLRenderTarget` (`finalRT`). `FloatType` preserves full linear precision through readback; requires `EXT_color_buffer_float` (universally available in WebGL2 on desktop).
-- Pixels are read back via `readRenderTargetPixels()` into a `Float32Array`.
-- A **4096-entry LUT** applies the IEC 61966-2-1 sRGB transfer function. The LUT indexes on the linear float value (quantised to 12-bit before curve application) — error ≤ 0.4 output units vs. the live path.
-- Y-flip (OpenGL bottom-first → canvas top-first) is done in the same pixel loop as the LUT application.
-- Result is written to a `CanvasRenderingContext2D` via `putImageData()` then downloaded via `toDataURL('image/png')`.
+- Creates an offscreen `WebGLRenderer` with a canvas and `preserveDrawingBuffer: true`.
+- The `renderFrame` callback calls `renderPasses(offRenderer, offRT1, offRT2, w, h)` with `outputRT = null` (screen canvas). This means the final pass uses the **identical pipeline** as the live viewport — same color handling, same `outputColorSpace` switching inside `renderPasses`.
+- The offscreen canvas is then captured via `toDataURL('image/png')` — exactly like the snapshot button, just at the requested export resolution (HD/4K/5K).
+- No manual sRGB LUT, no FloatType readback, no Y-flip — the browser handles all of this through the standard canvas-to-PNG path.
 
 **Video** (`src/utils/exportVideo.js`):
 - Uses `canvas.captureStream(0)` + `MediaRecorder` on the **live canvas** (which already has correct sRGB output via `renderer.outputColorSpace = THREE.SRGBColorSpace`).
@@ -200,7 +198,7 @@ During video export, the live `requestAnimationFrame` loop is cancelled manually
 - Supports canvas-resolution and offscreen 4K export paths.
 
 **Live renderer**:
-- Sets `renderer.outputColorSpace = THREE.SRGBColorSpace` explicitly so Three.js applies linear→sRGB encoding when rendering to the screen canvas.
+- `renderPasses()` sets `outputColorSpace = THREE.SRGBColorSpace` for the final pass when rendering to the screen canvas (`outputRT = null`). Intermediate passes use `LinearSRGBColorSpace`.
 
 ### Controls Panel
 
@@ -286,29 +284,18 @@ Post-processing layers (like halftone) that read a render target may omit `uTime
 
 ## Known Bugs & Fixes
 
-### Bug: Washed / desaturated PNG export
-**Symptom**: Exported PNG looked significantly brighter and less saturated than the live canvas.
+### Bug: HD / 4K / 5K PNG exports washed out (manual sRGB LUT approach)
+**Symptom**: Exported PNGs at HD/4K/5K were significantly brighter and more washed out than the live canvas. Snapshots (viewport-resolution `canvas.toDataURL()`) looked correct.
 
-**Root causes (two separate issues, both fixed):**
+**Root cause**: The old export pipeline rendered the final pass into a `FloatType` `WebGLRenderTarget` with `outputColorSpace = LinearSRGBColorSpace`, read back raw float pixels via `readRenderTargetPixels()`, and applied a manual 4096-entry sRGB LUT. The assumption was that `ShaderMaterial` gets automatic sRGB encoding from Three.js when `outputColorSpace = SRGBColorSpace` — and therefore the export path needed its own manual encoding when rendering to an RT.
 
-1. **256-entry integer LUT with late quantization** — the old export code built a `Uint8Array(256)` LUT where the sRGB curve was applied *after* the linear value was rounded to a `Uint8`. Because the sRGB curve has slope ≈ 12.92 near black, rounding errors of ±0.5/255 in the linear domain produced errors up to **3 output units** in dark tones, noticeably crushing shadow detail.
+In practice, **`ShaderMaterial` in Three.js 0.172 does not reliably inject output encoding**. The live canvas displays the raw shader output without sRGB conversion, and the snapshot captures those exact values via `toDataURL()`. The manual LUT then applied an sRGB gamma curve to values that were already "final," lifting mid-tones (e.g., linear 0.5 → sRGB 0.735) and producing the washed-out appearance.
 
-   **Fix**: Upgraded to a `4096-entry` LUT (`LUT_N = 4096`). The linear float is quantised to a 12-bit index *before* applying the curve — error ≤ 0.4 output units, indistinguishable from the live path.
+A secondary contributing factor: the export intermediate RTs used `HalfFloatType` while the live pipeline used default `UnsignedByteType`. With additive blending (Layer 2), values above 1.0 were preserved in the HalfFloat export but clipped in the live path, making bright regions appear even brighter in exports.
 
-2. **`readRenderTargetPixels()` returning Uint8 data** — when the export renderer's `finalRT` used the default `UnsignedByteType`, pixel readback returned pre-quantized 8-bit values. Combined with the LUT issue above, precision loss compounded.
+**Fix**: Replaced the entire FloatType-RT + manual-LUT + Y-flip pipeline with the same approach as the snapshot: render the final pass to an offscreen **canvas** (null render target, not an RT) and capture via `toDataURL('image/png')`. The export now uses `renderPasses(offRenderer, offRT1, offRT2, w, h)` with `outputRT = null`, so the final halftone pass goes through the identical color path as the live viewport. Intermediate RTs use `makeRT()` (same as live).
 
-   **Fix**: `finalRT` now uses `THREE.FloatType`. `readRenderTargetPixels()` fills a `Float32Array` with true 32-bit linear values, which are then fed into the 4096-entry LUT.
-
-### Bug: Export / viewport color mismatch
-**Symptom**: Colors in the exported PNG didn't match what was visible in the browser.
-
-**Root cause**: The export renderer had `outputColorSpace = THREE.SRGBColorSpace` set. With `ShaderMaterial`, Three.js injects its own `linearToOutputColorSpace()` transform into the fragment shader when this is set — even when rendering to a `WebGLRenderTarget`. This meant colors were sRGB-encoded *twice*: once by Three.js inside the shader, and once by our manual LUT, producing blown-out highlights and shifted hues.
-
-**Fix**: The export renderer intentionally does **not** set `outputColorSpace`. All passes render to render targets with default `NoColorSpace`; Three.js injects no encoding. The manual LUT in `export.js` is the sole sRGB transform.
-
-The live renderer still sets `renderer.outputColorSpace = THREE.SRGBColorSpace` because it renders the final pass to the screen canvas (null render target), where Three.js encoding is correct and desired.
-
-**Rule to remember**: `outputColorSpace = SRGBColorSpace` is correct only for rendering to the screen canvas. Never set it when rendering to a render target that will be read back manually.
+**Rule to remember**: Do not use a manual sRGB LUT for PNG export. Render to a canvas (null RT) and use `toDataURL()` — this guarantees pixel-perfect match with the live viewport regardless of how Three.js handles `ShaderMaterial` output encoding. The snapshot button proves this approach works.
 
 ### Bug: 60fps video export produces a still frame
 **Symptom**: Exporting at 60fps produced a static image (or very short video); 30fps worked fine.

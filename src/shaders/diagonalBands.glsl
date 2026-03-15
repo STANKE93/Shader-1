@@ -22,10 +22,10 @@ uniform int       uBandInvert;    // 0 = normal, 1 = invert (swap glass/gap), 2 
 uniform float     uDistort;       // [0..1]: noise-based band distortion
 uniform float     uBlur;          // [0..1]: glass blur diffusion (multi-tap)
 
-// Mode: 0 = parallel, 1 = burst
+// Mode: 0 = parallel, 1 = burst, 2 = orbit
 uniform int       uBandsMode;
-uniform float     uBurstCenterX;  // burst origin X in UV space [0..1]
-uniform float     uBurstCenterY;  // burst origin Y in UV space [0..1]
+uniform float     uBurstCenterX;  // burst/orbit origin X in UV space [0..1]
+uniform float     uBurstCenterY;  // burst/orbit origin Y in UV space [0..1]
 uniform float     uRaySpread;     // ray count — keep integer to avoid ±π seam
 uniform float     uRayLength;     // radial extent of rays in UV units
 uniform float     uRayIntensity;  // additive brightness of the ray interior
@@ -92,6 +92,7 @@ void main() {
 
     vec2  dir   = vec2(cos(uAngle), sin(uAngle));
     float proj  = dot(vUv, dir);
+
     // Noise-based distortion: gently warps band positions
     float distortN = (valueNoise(vUv * 4.0 + uTime * 0.15) - 0.5) * 2.0;
     float phase = proj * uSpacing * 6.28318 + uTime * uSpeed + uOffset
@@ -110,8 +111,8 @@ void main() {
     float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
 
-    // Both: entire surface is glass — no gaps
-    if (uBandInvert == 2) bandMask = 1.0;
+    // Both: entire surface is glass — no gaps, uniform refraction
+    if (uBandInvert == 2) { bandMask = 1.0; wave = 1.0; }
 
     float thickMask = mix(bandMask, wave, uThickness);
 
@@ -176,7 +177,7 @@ void main() {
 
     gl_FragColor = vec4(tinted + rimLight + specular, 1.0);
 
-  } else {
+  } else if (uBandsMode == 1) {
     // ─── BURST MODE ────────────────────────────────────────────────────────
     //
     // Rays radiate from (uBurstCenterX, uBurstCenterY). Wave is angular —
@@ -211,8 +212,8 @@ void main() {
     float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
     float bandMask  = smoothstep(edge, 1.0 - edge, wave);
 
-    // Both: entire surface is glass — no gaps
-    if (uBandInvert == 2) bandMask = 1.0;
+    // Both: entire surface is glass — no gaps, uniform refraction
+    if (uBandInvert == 2) { bandMask = 1.0; wave = 1.0; }
 
     float thickMask = mix(bandMask, wave, uThickness);
 
@@ -279,5 +280,93 @@ void main() {
     vec3  rayAdd    = mix(tinted, vec3(1.0), 0.35) * rayFactor * 0.4;
 
     gl_FragColor = vec4(tinted + rimLight + specular + rayAdd, 1.0);
+
+  } else if (uBandsMode == 2) {
+    // ─── ORBIT MODE ──────────────────────────────────────────────────────
+    //
+    // Concentric ring bands emanating from (uBurstCenterX, uBurstCenterY).
+    // Wave is radial — periodic in distance from center, so each ring is a
+    // concentric circle. Rings animate outward/inward over time.
+
+    vec2  center = vec2(uBurstCenterX, uBurstCenterY);
+    vec2  delta  = vUv - center;
+    float dist   = length(delta);
+
+    // Radial and tangential unit vectors
+    vec2  rDir = dist > 0.001 ? delta / dist : vec2(1.0, 0.0);
+    vec2  tDir = vec2(-rDir.y, rDir.x);
+
+    // Radial phase — uSpacing controls ring density, time animates outward
+    float distortN = (valueNoise(vUv * 4.0 + uTime * 0.15) - 0.5) * 2.0;
+    float phase = dist * uSpacing * 6.28318 + uTime * uSpeed + uOffset
+                + distortN * uDistort * 8.0;
+
+    float wave;
+    if (uStep == 2) {
+      wave = abs(sin(phase));
+    } else {
+      wave = sin(phase) * 0.5 + 0.5;
+    }
+    if (uBandInvert == 1) wave = 1.0 - wave;
+
+    float edge = 0.5 - clamp(uSoftness * 0.48, 0.001, 0.479);
+    float bandMask  = smoothstep(edge, 1.0 - edge, wave);
+
+    if (uBandInvert == 2) { bandMask = 1.0; wave = 1.0; }
+
+    float thickMask = mix(bandMask, wave, uThickness);
+
+    // Tilt: same venetian blind logic, rDir = cross-ring, tDir = along-ring
+    float crossPos = (wave - 0.5) * 2.0;
+
+    float gradMag;
+    if (uBandShape == 1) {
+      gradMag = crossPos * STEEPNESS * 3.0;
+    } else if (uBandShape == 2) {
+      float absCross = abs(crossPos);
+      gradMag = sign(crossPos) * pow(1.0 - absCross, 2.0) * STEEPNESS * 4.0;
+    } else {
+      gradMag = cos(phase) * STEEPNESS;
+    }
+    float tiltNormal  = uTilt  * crossPos;
+    float tiltNormal2 = uTilt2 * crossPos;
+    float tiltZ = 1.0 + uTiltZ * crossPos;
+
+    vec3  N = normalize(vec3((-gradMag + tiltNormal) * rDir + tiltNormal2 * tDir, max(tiltZ, 0.05)));
+
+    float eta      = 1.0 / max(uIOR, 1.0);
+    vec3  incident = vec3(0.0, 0.0, -1.0);
+    vec3  refracted = refract(incident, N, eta);
+    if (length(refracted) < 0.001) refracted = incident;
+
+    // Schlick Fresnel
+    float cosTheta    = max(N.z, 0.0);
+    float fresnel     = schlickFresnel(cosTheta, uIOR);
+    float transmission = 1.0 - fresnel * uFresnel;
+
+    // Refracted background with directional blur
+    vec2  baseDisp   = refracted.xy * thickMask * transmission;
+    float blurRadius = thickMask * uBlur * 0.015;
+    vec3  bg;
+    if (blurRadius > 0.0001) {
+      bg = blurSample(vUv + baseDisp, N.xy, blurRadius);
+    } else {
+      bg = texture2D(uBackground, vUv + baseDisp).rgb;
+    }
+
+    // Tinted glass absorption
+    vec3 tinted = mix(bg, bg * uTintColor, uTintStrength * thickMask);
+
+    // Fresnel rim light
+    vec3 rimLight = vec3(fresnel * uFresnel * 0.5) * thickMask;
+
+    // Blinn-Phong specular
+    float spec = glassSpecular(N, uBevelWidth);
+    vec3 specular = vec3(0.9, 0.95, 1.0) * spec * uBevelIntensity * fresnel * thickMask;
+
+    gl_FragColor = vec4(tinted + rimLight + specular, 1.0);
+  } else {
+    // Fallback: pass through background
+    gl_FragColor = texture2D(uBackground, vUv);
   }
 }

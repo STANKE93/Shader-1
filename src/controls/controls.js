@@ -142,6 +142,33 @@ function injectStyles() {
     .cs-dual-cell .cs-slider-label { font-size: 10px; min-width: 0; }
     .cs-dual-cell .cs-slider-val { font-size: 10px; }
 
+    /* Position pad — rectangular XY control for radial/sweep center */
+    .cs-pos-pad {
+      width: 100px; height: 64px; flex-shrink: 0;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0,0,0,0.3);
+      position: relative; cursor: crosshair;
+      overflow: hidden;
+    }
+    .cs-pos-crosshair {
+      position: absolute; background: rgba(255,255,255,0.06);
+    }
+    .cs-pos-crosshair-h { width: 100%; height: 1px; top: 50%; left: 0; }
+    .cs-pos-crosshair-v { height: 100%; width: 1px; left: 50%; top: 0; }
+    .cs-pos-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #5b9cf5; position: absolute;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
+    }
+    .cs-pos-corner {
+      width: 4px; height: 4px; border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      position: absolute; pointer-events: none;
+    }
+
     /* Tilt pad — circular XY control */
     .cs-tilt-wrap {
       display: flex; align-items: center; gap: 10px;
@@ -660,6 +687,63 @@ function makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, o
   return row
 }
 
+// Rectangular position pad for radial/sweep center.
+// Maps mouse to 0..1 for both axes. Double-click resets to 0.5.
+function makePositionPad(unifX, unifY) {
+  const pad = document.createElement('div')
+  pad.className = 'cs-pos-pad'
+
+  // Crosshair lines at center
+  const crossH = document.createElement('div')
+  crossH.className = 'cs-pos-crosshair cs-pos-crosshair-h'
+  const crossV = document.createElement('div')
+  crossV.className = 'cs-pos-crosshair cs-pos-crosshair-v'
+  pad.appendChild(crossH)
+  pad.appendChild(crossV)
+
+  // 4 decorative corner dots
+  for (const [l, t] of [['4px','4px'],['calc(100% - 8px)','4px'],['4px','calc(100% - 8px)'],['calc(100% - 8px)','calc(100% - 8px)']]) {
+    const c = document.createElement('div')
+    c.className = 'cs-pos-corner'
+    c.style.left = l; c.style.top = t
+    pad.appendChild(c)
+  }
+
+  // Draggable dot
+  const dot = document.createElement('div')
+  dot.className = 'cs-pos-dot'
+  pad.appendChild(dot)
+
+  function positionDot() {
+    dot.style.left = (unifX.value * 100) + '%'
+    dot.style.top = ((1 - unifY.value) * 100) + '%' // invert Y: UV 0=bottom, screen 0=top
+  }
+
+  function updateFromMouse(e) {
+    const rect = pad.getBoundingClientRect()
+    let nx = (e.clientX - rect.left) / rect.width
+    let ny = 1 - (e.clientY - rect.top) / rect.height // invert Y
+    nx = Math.max(0, Math.min(1, nx))
+    ny = Math.max(0, Math.min(1, ny))
+    unifX.value = nx
+    unifY.value = ny
+    positionDot()
+  }
+
+  let dragging = false
+  pad.addEventListener('mousedown', e => { dragging = true; updateFromMouse(e); e.preventDefault() })
+  window.addEventListener('mousemove', e => { if (dragging) updateFromMouse(e) })
+  window.addEventListener('mouseup', () => { dragging = false })
+
+  pad.addEventListener('dblclick', () => {
+    unifX.value = 0.5; unifY.value = 0.5
+    positionDot()
+  })
+
+  positionDot()
+  return pad
+}
+
 // Circular XY pad + Z slider for 3-axis tilt control.
 // X maps left/right (-1..1), Y maps up/down (-1..1), constrained to circle.
 // Z is a vertical slider on the side.
@@ -1124,12 +1208,43 @@ function buildGradientLayerSub(label, u, layerKey) {
       Math.round(u.uDriftAngle.value * 180 / Math.PI), 1,
       v => { u.uDriftAngle.value = v * Math.PI / 180 })
 
-    // Radial-specific controls
+    // Radial-specific controls: ripple toggle + compact 3D controls
     const radialGroup = document.createElement('div')
     radialGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
-    radialGroup.appendChild(makeSlider('ripple', 0, 1, u.uRipple.value, 0.01, v => { u.uRipple.value = v }))
-    radialGroup.appendChild(makeSlider('count', 1, 20, u.uRippleCount.value, 0.5, v => { u.uRippleCount.value = v }))
-    radialGroup.appendChild(makeSlider('compression', 0.01, 20, u.uRippleCompress.value, 0.1, v => { u.uRippleCompress.value = v }))
+
+    // Ripple on/off toggle row
+    const rippleRow = document.createElement('div')
+    rippleRow.className = 'cs-field-row'
+    const rippleLbl = document.createElement('span')
+    rippleLbl.className = 'cs-field-label'
+    rippleLbl.textContent = 'Ripple 3D'
+    rippleRow.appendChild(rippleLbl)
+
+    // Ripple detail controls (shown when toggle is on)
+    const rippleDetails = document.createElement('div')
+    rippleDetails.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+
+    rippleDetails.appendChild(makeDualSlider('count', 'compress', 1, 20, u.uRippleCount.value, u.uRippleCompress.value, 0.1,
+      v => { u.uRippleCount.value = v },
+      v => { u.uRippleCompress.value = v }))
+    rippleDetails.appendChild(makeSlider('shadow', 0, 1, u.uShadowDepth.value, 0.01,
+      v => { u.uShadowDepth.value = v }))
+    rippleDetails.appendChild(makeSlider('light angle°', 0, 360, Math.round(u.uLightAngle.value * 180 / Math.PI), 1,
+      v => { u.uLightAngle.value = v * Math.PI / 180 }))
+
+    function syncRipple() {
+      const on = u.uRipple.value > 0.0
+      rippleDetails.style.display = on ? 'flex' : 'none'
+    }
+
+    rippleRow.appendChild(makeToggle(u.uRipple.value > 0, v => {
+      u.uRipple.value = v ? 1.0 : 0.0
+      syncRipple()
+    }))
+
+    radialGroup.appendChild(rippleRow)
+    radialGroup.appendChild(rippleDetails)
+    syncRipple()
 
     // Sweep-specific controls
     const sweepGroup = document.createElement('div')
@@ -1149,6 +1264,7 @@ function buildGradientLayerSub(label, u, layerKey) {
       radialGroup.style.display = mode === 0 ? 'flex' : 'none'
       dirRow.style.display = mode === 1 ? '' : 'none'
       sweepGroup.style.display = mode === 2 ? 'flex' : 'none'
+      posPad.style.display = mode === 1 ? 'none' : '' // visible in radial + sweep
     }
 
     const radial_ = document.createElement('button')
@@ -1173,7 +1289,11 @@ function buildGradientLayerSub(label, u, layerKey) {
     modeRow.appendChild(pills)
     body.appendChild(modeRow)
 
+    // Position pad for radial/sweep center (hidden in linear mode)
+    const posPad = makePositionPad(u.uCenterX, u.uCenterY)
+
     body.appendChild(makeSlider('speed', 0.05, 2, u.uSpeed.value, 0.01, v => { u.uSpeed.value = v }))
+    body.appendChild(posPad)
     body.appendChild(radialGroup)
     body.appendChild(dirRow)
     body.appendChild(sweepGroup)
@@ -1239,13 +1359,23 @@ function buildGeometrySection(uniforms) {
       burstGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
       burstGroup.appendChild(makeSlider('angle°',    0,   360,  Math.round(ub.uOffset.value * 180 / Math.PI), 1, v => { ub.uOffset.value = v * Math.PI / 180 }))
       burstGroup.appendChild(makeSlider('intensity', 0,   2,    ub.uRayIntensity.value, 0.01, v => { ub.uRayIntensity.value = v }))
+      burstGroup.appendChild(makeSlider('radial count', 1, 32, ub.uRaySpread.value, 1, v => { ub.uRaySpread.value = v }))
+
+      // Orbit-only controls (center position)
+      const orbitGroup = document.createElement('div')
+      orbitGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+      orbitGroup.appendChild(makeSlider('spacing',  1, 20, ub.uSpacing.value, 0.1, v => { ub.uSpacing.value = v }))
+      orbitGroup.appendChild(makeSlider('center x', 0, 1,  ub.uBurstCenterX.value, 0.01, v => { ub.uBurstCenterX.value = v }))
+      orbitGroup.appendChild(makeSlider('center y', 0, 1,  ub.uBurstCenterY.value, 0.01, v => { ub.uBurstCenterY.value = v }))
 
       function syncBandsMode() {
         const m = ub.uBandsMode.value
         parallel_.classList.toggle('active', m === 0)
         burst_.classList.toggle('active', m === 1)
+        orbit_.classList.toggle('active', m === 2)
         parallelGroup.style.display = m === 0 ? 'flex' : 'none'
         burstGroup.style.display    = m === 1 ? 'flex' : 'none'
+        orbitGroup.style.display    = m === 2 ? 'flex' : 'none'
       }
 
       const parallel_ = document.createElement('button')
@@ -1258,13 +1388,20 @@ function buildGeometrySection(uniforms) {
       burst_.textContent = 'Burst'
       burst_.addEventListener('click', () => { ub.uBandsMode.value = 1; syncBandsMode() })
 
+      const orbit_ = document.createElement('button')
+      orbit_.className = 'cs-pill'
+      orbit_.textContent = 'Orbit'
+      orbit_.addEventListener('click', () => { ub.uBandsMode.value = 2; syncBandsMode() })
+
       modePills.appendChild(parallel_)
       modePills.appendChild(burst_)
+      modePills.appendChild(orbit_)
       modeRow.appendChild(modeLbl)
       modeRow.appendChild(modePills)
       sub.appendChild(modeRow)
       sub.appendChild(parallelGroup)
       sub.appendChild(burstGroup)
+      sub.appendChild(orbitGroup)
 
       // Invert pills: Normal | Invert | Both — shared by both modes
       const invertRow = document.createElement('div')
@@ -1380,6 +1517,16 @@ function buildEffectsSection(uniforms) {
 
 function buildRenderingSection(uniforms) {
   return makeSection('Rendering', body => {
+    // Caustics subsection
+    const uc = uniforms.caustics
+    _regLayer = 'caustics'
+    body.appendChild(makeSubsection('Caustics', uc, sub => {
+      sub.appendChild(makeSlider('speed',     0.05, 2,   uc.uSpeed.value,     0.01, v => { uc.uSpeed.value     = v }))
+      sub.appendChild(makeSlider('scale',     1,    12,  uc.uScale.value,     0.1,  v => { uc.uScale.value     = v }))
+      sub.appendChild(makeSlider('intensity', 0,    0.5, uc.uIntensity.value, 0.01, v => { uc.uIntensity.value = v }))
+      _regLayer = null
+    }))
+
     const u = uniforms.halftone
     _regLayer = 'halftone'
     body.appendChild(makeSubsection('Halftone', u, sub => {
@@ -1420,6 +1567,16 @@ function buildRenderingSection(uniforms) {
       }))
       _regLayer = null
     }))
+
+    // Global monochrome toggle — applies on top of everything
+    const monoRow = document.createElement('div')
+    monoRow.className = 'cs-field-row'
+    const monoLbl = document.createElement('span')
+    monoLbl.className = 'cs-field-label'
+    monoLbl.textContent = 'Mono'
+    monoRow.appendChild(monoLbl)
+    monoRow.appendChild(makeToggle(u.uMono.value, v => { u.uMono.value = v }))
+    body.appendChild(monoRow)
   })
 }
 

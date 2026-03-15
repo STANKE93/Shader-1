@@ -4,6 +4,7 @@ import gradientLayer1 from './shaders/gradientLayer1.glsl'
 import gradientLayer2 from './shaders/gradientLayer2.glsl'
 import diagonalBands  from './shaders/diagonalBands.glsl'
 import lightStreaks   from './shaders/lightStreaks.glsl'
+import caustics       from './shaders/caustics.glsl'
 import halftone       from './shaders/halftone.glsl'
 import { exportPNG }        from './utils/export.js'
 import { exportVideo, computeLoopDuration } from './utils/exportVideo.js'
@@ -79,8 +80,10 @@ export function createScene(canvas) {
     resolution.set(w, h)
     rt1.dispose(); rt1 = makeRT(w, h)
     rt2.dispose(); rt2 = makeRT(w, h)
-    uniformsBands.uBackground.value    = rt1.texture
-    uniformsHalftone.uBackground.value = rt2.texture
+    rt3.dispose(); rt3 = makeRT(w, h)
+    uniformsBands.uBackground.value      = rt1.texture
+    uniformsCaustics.uBackground.value   = rt2.texture
+    uniformsHalftone.uBackground.value   = rt3.texture
     uniformsHalftone.uResolution.value.set(w, h)
   }
 
@@ -104,10 +107,11 @@ export function createScene(canvas) {
 
   renderer.setSize(cw(), ch(), false)
 
-  // Three isolated scenes — one per render pass
-  const bgScene       = new THREE.Scene() // pass 1: gradient layers
-  const bandsScene    = new THREE.Scene() // pass 2: diagonal bands distortion
-  const halftoneScene = new THREE.Scene() // pass 3: halftone screen
+  // Four isolated scenes — one per render pass
+  const bgScene        = new THREE.Scene() // pass 1: gradient layers
+  const bandsScene     = new THREE.Scene() // pass 2: diagonal bands distortion
+  const causticsScene  = new THREE.Scene() // pass 3: caustics light overlay
+  const halftoneScene  = new THREE.Scene() // pass 4: halftone screen
 
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
 
@@ -119,6 +123,7 @@ export function createScene(canvas) {
 
   let rt1 = makeRT(cw(), ch())
   let rt2 = makeRT(cw(), ch())
+  let rt3 = makeRT(cw(), ch())
 
   const resolution = new THREE.Vector2(cw(), ch())
 
@@ -134,11 +139,15 @@ export function createScene(canvas) {
     uResolution:    { value: resolution },
     uMode:             { value: 1 },               // 0=radial, 1=linear, 2=sweep
     uDriftAngle:       { value: Math.PI * 0.25 }, // 45° diagonal (linear mode only)
-    uRipple:           { value: 0.0 },            // radial ripple refraction depth
+    uRipple:           { value: 0.0 },            // radial ripple on/off (0 or 1)
     uRippleCount:      { value: 7.0 },            // ring density multiplier
     uRippleCompress:   { value: 6.0 },            // sqrt compression factor
+    uLightAngle:       { value: 0.94 },           // light azimuth in radians (~54°)
+    uShadowDepth:      { value: 0.0 },            // valley darkening
     uSweepSeam:        { value: 0.0 },            // sweep back-seam softness (0 = sharp, 1 = soft)
     uSweepCenter:      { value: 0.0 },            // center blur radius (0 = sharp, 1 = soft)
+    uCenterX:          { value: 0.5 },            // radial/sweep center X [0..1]
+    uCenterY:          { value: 0.5 },            // radial/sweep center Y [0..1]
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: gradientLayer1, uniforms: uniforms1,
@@ -156,11 +165,15 @@ export function createScene(canvas) {
     uResolution:    { value: resolution },
     uMode:             { value: 0 },     // 0=radial, 1=linear, 2=sweep
     uDriftAngle:       { value: 0.0 },  // rightward (linear mode only)
-    uRipple:           { value: 0.0 },  // radial ripple refraction depth
+    uRipple:           { value: 0.0 },  // radial ripple on/off (0 or 1)
     uRippleCount:      { value: 7.0 },  // ring density multiplier
     uRippleCompress:   { value: 6.0 },  // sqrt compression factor
+    uLightAngle:       { value: 0.94 }, // light azimuth in radians (~54°)
+    uShadowDepth:      { value: 0.0 },  // valley darkening
     uSweepSeam:        { value: 0.0 },  // sweep back-seam softness (0 = sharp, 1 = soft)
     uSweepCenter:      { value: 0.0 },  // center blur radius (0 = sharp, 1 = soft)
+    uCenterX:          { value: 0.5 },  // radial/sweep center X [0..1]
+    uCenterY:          { value: 0.5 },  // radial/sweep center Y [0..1]
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: gradientLayer2, uniforms: uniforms2,
@@ -218,7 +231,7 @@ export function createScene(canvas) {
     uBandInvert:      { value: 0 },    // 0 = normal, 1 = invert, 2 = both
     uDistort:         { value: 0.0 },  // [0..1]: noise-based band distortion
     uBlur:            { value: 0.0 },  // [0..1]: glass blur diffusion
-    // Mode: 0 = parallel, 1 = burst
+    // Mode: 0 = parallel, 1 = burst, 2 = orbit
     uBandsMode:       { value: 0 },
     uBurstCenterX:    { value: 0.5 },
     uBurstCenterY:    { value: 0.5 },
@@ -230,15 +243,30 @@ export function createScene(canvas) {
     vertexShader: baseVertex, fragmentShader: diagonalBands, uniforms: uniformsBands,
   })))
 
-  // --- Layer 4: halftone screen ---
-  const uniformsHalftone = {
+  // --- Layer 4: caustics light overlay ---
+  const uniformsCaustics = {
     uBackground:   { value: rt2.texture },
+    uTime:         { value: 0 },
+    uLayerEnabled: { value: false },   // off by default — new layer, opt-in
+    uSpeed:        { value: 0.3 },
+    uOffset:       { value: 0.0 },
+    uScale:        { value: 4.0 },
+    uIntensity:    { value: 0.12 },
+  }
+  causticsScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
+    vertexShader: baseVertex, fragmentShader: caustics, uniforms: uniformsCaustics,
+  })))
+
+  // --- Layer 5: halftone screen ---
+  const uniformsHalftone = {
+    uBackground:   { value: rt3.texture },
     uLayerEnabled: { value: true },
     uResolution:   { value: resolution.clone() },
     uSpacing:      { value: 18.0 },
     uScale:        { value: 0.82 },
     uShadow:       { value: 0.06 },
     uShape:        { value: 0 },    // 0 = circle, 1 = square
+    uMono:         { value: false }, // global monochrome filter
   }
   halftoneScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: halftone, uniforms: uniformsHalftone,
@@ -258,15 +286,17 @@ export function createScene(canvas) {
   //
   //   Final pass → null (screen):  SRGBColorSpace — Three.js injects linear→sRGB.
   //   Final pass → RT (export):    LinearSRGBColorSpace — manual LUT in export.js.
-  function renderPasses(r, bgRT1, bgRT2, w, h, outputRT = null) {
-    uniformsBands.uBackground.value    = bgRT1.texture
-    uniformsHalftone.uBackground.value = bgRT2.texture
+  function renderPasses(r, bgRT1, bgRT2, bgRT3, w, h, outputRT = null) {
+    uniformsBands.uBackground.value      = bgRT1.texture
+    uniformsCaustics.uBackground.value   = bgRT2.texture
+    uniformsHalftone.uBackground.value   = bgRT3.texture
     uniformsHalftone.uResolution.value.set(w, h)
 
     // Intermediate passes — linear throughout, no encoding injected
     r.outputColorSpace = THREE.LinearSRGBColorSpace
     r.setRenderTarget(bgRT1);    r.render(bgScene, camera)
     r.setRenderTarget(bgRT2);    r.render(bandsScene, camera)
+    r.setRenderTarget(bgRT3);    r.render(causticsScene, camera)
 
     // Final pass — sRGB only when writing to screen, linear for export RT readback
     if (outputRT === null) r.outputColorSpace = THREE.SRGBColorSpace
@@ -283,11 +313,12 @@ export function createScene(canvas) {
   function tick(time) {
     // When paused, reuse the frozen time so uniform edits still re-render correctly.
     const t = paused ? pausedTime : (time * 0.001 - timeOffset)
-    uniforms1.uTime.value         = t
-    uniforms2.uTime.value         = t
-    uniformsStreaks.uTime.value   = t
-    uniformsBands.uTime.value     = t
-    renderPasses(renderer, rt1, rt2, cw(), ch())
+    uniforms1.uTime.value          = t
+    uniforms2.uTime.value          = t
+    uniformsStreaks.uTime.value    = t
+    uniformsBands.uTime.value      = t
+    uniformsCaustics.uTime.value   = t
+    renderPasses(renderer, rt1, rt2, rt3, cw(), ch())
     rafId = requestAnimationFrame(tick)
   }
 
@@ -316,13 +347,13 @@ export function createScene(canvas) {
 
   // Collect active animation speeds for loop-duration calculation
   function activeSpeeds() {
-    return [uniforms1.uSpeed.value, uniforms2.uSpeed.value, uniformsStreaks.uSpeed.value, uniformsBands.uSpeed.value]
+    return [uniforms1.uSpeed.value, uniforms2.uSpeed.value, uniformsStreaks.uSpeed.value, uniformsBands.uSpeed.value, uniformsCaustics.uSpeed.value]
   }
 
   return {
     start: () => { rafId = requestAnimationFrame(tick) },
 
-    uniforms: { layer1: uniforms1, layer2: uniforms2, streaks: uniformsStreaks, bands: uniformsBands, halftone: uniformsHalftone },
+    uniforms: { layer1: uniforms1, layer2: uniforms2, streaks: uniformsStreaks, bands: uniformsBands, caustics: uniformsCaustics, halftone: uniformsHalftone },
 
     // Returns exact loop-safe duration for a requested target duration
     getLoopDuration: (targetSecs) => computeLoopDuration(activeSpeeds(), targetSecs),
@@ -332,28 +363,21 @@ export function createScene(canvas) {
 
     exportPNG: (label) => {
       const [w, h] = exportDimensions(label)
-      // renderFrame receives (offRenderer, finalRT). The final halftone pass renders
-      // into finalRT (FloatType) so export.js reads back linear pixels and applies
-      // its own sRGB LUT, bypassing toDataURL() color-space quirks.
-      //
-      // Intermediate RTs use HalfFloatType to preserve HDR headroom from additive
-      // blending (Layer 2 + Streaks). Prevents bright-highlight clipping that 8-bit
-      // UnsignedByte RTs would introduce.
-      exportPNG(w, h, label, (offRenderer, finalRT) => {
-        const makeHDRRT = (rw, rh) => new THREE.WebGLRenderTarget(rw, rh, {
-          minFilter: THREE.LinearFilter,
-          magFilter: THREE.LinearFilter,
-          format:    THREE.RGBAFormat,
-          type:      THREE.HalfFloatType,
-        })
-        const offRT1 = makeHDRRT(w, h)
-        const offRT2 = makeHDRRT(w, h)
-        renderPasses(offRenderer, offRT1, offRT2, w, h, finalRT)
-        uniformsBands.uBackground.value    = rt1.texture
-        uniformsHalftone.uBackground.value = rt2.texture
+      // Render to the offscreen canvas (null RT) so the final pass uses the
+      // identical pipeline as the live viewport.  toDataURL() then captures the
+      // pixels — same as the snapshot button, just at export resolution.
+      exportPNG(w, h, label, (offRenderer) => {
+        const offRT1 = makeRT(w, h)
+        const offRT2 = makeRT(w, h)
+        const offRT3 = makeRT(w, h)
+        renderPasses(offRenderer, offRT1, offRT2, offRT3, w, h)   // outputRT = null → screen
+        uniformsBands.uBackground.value      = rt1.texture
+        uniformsCaustics.uBackground.value   = rt2.texture
+        uniformsHalftone.uBackground.value   = rt3.texture
         uniformsHalftone.uResolution.value.set(cw(), ch())
         offRT1.dispose()
         offRT2.dispose()
+        offRT3.dispose()
       })
     },
 
@@ -379,25 +403,21 @@ export function createScene(canvas) {
         offRenderer.setPixelRatio(1)
         offRenderer.setSize(w, h, false)
 
-        // Intermediate RTs at 4K with HalfFloatType for HDR headroom
-        const makeHDRRT = (rw, rh) => new THREE.WebGLRenderTarget(rw, rh, {
-          minFilter: THREE.LinearFilter,
-          magFilter: THREE.LinearFilter,
-          format:    THREE.RGBAFormat,
-          type:      THREE.HalfFloatType,
-        })
-        const offRT1 = makeHDRRT(w, h)
-        const offRT2 = makeHDRRT(w, h)
+        // Intermediate RTs at 4K — same type as live RTs (UnsignedByte) so
+        // additive blending clips identically and exports match the viewport.
+        const offRT1 = makeRT(w, h)
+        const offRT2 = makeRT(w, h)
+        const offRT3 = makeRT(w, h)
 
         await exportVideo(
           offCanvas,
           (t) => {
-            uniforms1.uTime.value       = t
-            uniforms2.uTime.value       = t
-            uniformsStreaks.uTime.value = t
-            uniformsBands.uTime.value   = t
-            // renderPasses handles outputColorSpace: SRGBColorSpace for final → null (screen canvas)
-            renderPasses(offRenderer, offRT1, offRT2, w, h)
+            uniforms1.uTime.value        = t
+            uniforms2.uTime.value        = t
+            uniformsStreaks.uTime.value  = t
+            uniformsBands.uTime.value    = t
+            uniformsCaustics.uTime.value = t
+            renderPasses(offRenderer, offRT1, offRT2, offRT3, w, h)
           },
           loopDuration,
           fps,
@@ -405,24 +425,27 @@ export function createScene(canvas) {
         )
 
         // Restore live uniform bindings after offscreen export
-        uniformsBands.uBackground.value    = rt1.texture
-        uniformsHalftone.uBackground.value = rt2.texture
+        uniformsBands.uBackground.value      = rt1.texture
+        uniformsCaustics.uBackground.value   = rt2.texture
+        uniformsHalftone.uBackground.value   = rt3.texture
         uniformsHalftone.uResolution.value.set(cw(), ch())
 
         // Clean up offscreen resources
         offRT1.dispose()
         offRT2.dispose()
+        offRT3.dispose()
         offRenderer.dispose()
       } else {
         // Canvas-resolution export (original path)
         await exportVideo(
           canvas,
           (t) => {
-            uniforms1.uTime.value       = t
-            uniforms2.uTime.value       = t
-            uniformsStreaks.uTime.value = t
-            uniformsBands.uTime.value   = t
-            renderPasses(renderer, rt1, rt2, cw(), ch())
+            uniforms1.uTime.value        = t
+            uniforms2.uTime.value        = t
+            uniformsStreaks.uTime.value  = t
+            uniformsBands.uTime.value    = t
+            uniformsCaustics.uTime.value = t
+            renderPasses(renderer, rt1, rt2, rt3, cw(), ch())
           },
           loopDuration,
           fps,
