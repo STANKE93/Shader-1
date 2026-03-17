@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cool Shadez</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #000; overflow: hidden; }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 30px; left: 30px;
+        width: calc(100vw - 30px - 284px);
+        height: calc(100vh - 60px);
+        border-radius: 6px;
+      }
+      .cs-app-frame {
+        position: fixed;
+        z-index: 50;
+        pointer-events: none;
+        border: 1.5px solid rgba(255,255,255,0.06);
+        border-radius: 6px;
+        /* Initial fallback; overridden by resizeCanvas() in scene.js */
+        top: 30px; left: 30px; bottom: 30px; right: 284px;
+      }
+      .cs-frame-corner {
+        position: absolute; width: 18px; height: 18px;
+        pointer-events: none;
+      }
+      .cs-frame-corner::before, .cs-frame-corner::after {
+        content: ''; position: absolute; background: rgba(255,255,255,0.12);
+      }
+      .cs-frame-corner::before { width: 18px; height: 1.5px; }
+      .cs-frame-corner::after  { width: 1.5px; height: 18px; }
+      .cs-frame-corner.tl { top: -1px; left: -1px; }
+      .cs-frame-corner.tl::before { top: 0; left: 0; }
+      .cs-frame-corner.tl::after  { top: 0; left: 0; }
+      .cs-frame-corner.tr { top: -1px; right: -1px; }
+      .cs-frame-corner.tr::before { top: 0; right: 0; }
+      .cs-frame-corner.tr::after  { top: 0; right: 0; }
+      .cs-frame-corner.bl { bottom: -1px; left: -1px; }
+      .cs-frame-corner.bl::before { bottom: 0; left: 0; }
+      .cs-frame-corner.bl::after  { bottom: 0; left: 0; }
+      .cs-frame-corner.br { bottom: -1px; right: -1px; }
+      .cs-frame-corner.br::before { bottom: 0; right: 0; }
+      .cs-frame-corner.br::after  { bottom: 0; right: 0; }
+    </style>
+  </head>
+  <body>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

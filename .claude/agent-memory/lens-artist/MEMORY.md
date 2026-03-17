@@ -1,0 +1,1 @@
+- [project_lens_pass.md](project_lens_pass.md) — 4th render pass: barrel distortion, chromatic aberration, vignette with Brown-Conrady model and cos^4 falloff
