@@ -14,6 +14,13 @@ frame.className = 'cs-app-frame'
 })
 document.body.appendChild(frame)
 
-const { start, uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions } = createScene(canvas)
-createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions)
+const { start, uniforms, palettes, buildRampFromPalette, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions } = createScene(canvas)
+createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions, palettes, buildRampFromPalette)
 start()
+
+// Decline HMR — any module change triggers a full page reload.
+// Partial HMR re-executes scene.js which resets all uniforms to defaults,
+// making the shader appear to "revert" to its original state.
+if (import.meta.hot) {
+  import.meta.hot.decline()
+}

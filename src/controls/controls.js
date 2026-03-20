@@ -128,6 +128,43 @@ function injectStyles() {
       cursor: pointer; box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
     }
 
+    /* Speed bar — segmented parallelogram meter */
+    .cs-speed-row {
+      display: flex;
+      align-items: center; gap: 5px;
+    }
+    .cs-speed-row .cs-slider-label { width: 86px; flex-shrink: 0; }
+    .cs-speed-row .cs-seed-btn + .cs-slider-label { width: auto; }
+    .cs-speed-row .cs-speed-pct { width: 32px; flex-shrink: 0; }
+    .cs-speed-bar {
+      display: flex; gap: 1.5px; height: 12px; cursor: pointer;
+      user-select: none; flex: 1; min-width: 0;
+    }
+    .cs-speed-seg {
+      flex: 1; border-radius: 1.5px;
+      transform: skewX(-12deg);
+      background: rgba(255,255,255,0.08);
+      transition: background 0.1s;
+    }
+    .cs-speed-seg.on {
+      background: var(--seg-color, rgba(91, 156, 245, 0.7));
+    }
+    .cs-speed-pct {
+      font-size: 11px; color: rgba(255,255,255,0.30);
+      text-align: right; font-variant-numeric: tabular-nums;
+    }
+    .cs-seed-btn {
+      font: 9px/1 inherit; letter-spacing: 0.06em; text-transform: uppercase;
+      color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10); border-radius: 4px;
+      padding: 3px 6px; cursor: pointer; white-space: nowrap;
+      transition: color 0.12s, background 0.12s, border-color 0.12s;
+    }
+    .cs-seed-btn:hover {
+      color: rgba(255,255,255,0.7); background: rgba(91,156,245,0.12);
+      border-color: rgba(91,156,245,0.3);
+    }
+
     /* Dual slider row — two mini sliders side by side */
     .cs-dual-row {
       display: grid;
@@ -283,46 +320,40 @@ function injectStyles() {
     .cs-adv-body.hidden { display: none; }
 
     /* Compact gradient preview */
-    .cs-ramp-compact { display: flex; align-items: center; gap: 8px; }
-    .cs-ramp-bar {
-      flex: 1; height: 14px; border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      cursor: pointer; transition: border-color 0.13s;
+    /* Color palette — single row: 2 main + separator + 4 extras */
+    .cs-palette-row {
+      display: flex; gap: 5px; align-items: center;
     }
-    .cs-ramp-bar:hover { border-color: rgba(91, 156, 245, 0.35); }
-    .cs-ramp-edit {
-      font-size: 9px; color: rgba(255,255,255,0.30); white-space: nowrap;
-      background: none; border: none; cursor: pointer; padding: 0;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      transition: color 0.13s;
-      font-family: inherit;
+    .cs-palette-sep {
+      width: 1px; height: 18px; background: rgba(255,255,255,0.10);
+      margin: 0 2px; flex-shrink: 0;
     }
-    .cs-ramp-edit:hover { color: #5b9cf5; }
-
-    /* Color ramp popover */
-    .cs-popover {
-      position: fixed; z-index: 300; width: 238px;
-      background: rgba(12, 13, 18, 0.97);
-      backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px; padding: 12px;
-      display: flex; flex-direction: column; gap: 8px;
-      box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    .cs-palette-swatch {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.18);
+      cursor: pointer; position: relative;
+      transition: opacity 0.15s, border-color 0.15s, transform 0.12s;
+      box-sizing: border-box; flex-shrink: 0;
     }
-    .cs-popover.hidden { display: none; }
-    .cs-popover-hdr { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .cs-popover-title { font-size: 10px; font-weight: 600; color: rgba(255, 255, 255, 0.50); letter-spacing: 0.1em; text-transform: uppercase; flex: 1; }
-    .cs-popover-add {
-      font-size: 10px; font-family: inherit; padding: 2px 6px; border-radius: 6px; cursor: pointer;
-      background: rgba(91, 156, 245, 0.12); border: 1px solid rgba(91, 156, 245, 0.25);
-      color: #5b9cf5; transition: background 0.12s;
+    .cs-palette-swatch.main { width: 26px; height: 26px; border-color: rgba(255,255,255,0.30); }
+    .cs-palette-swatch:hover { transform: scale(1.12); border-color: rgba(255,255,255,0.45); }
+    .cs-palette-swatch.disabled { opacity: 0.28; border-style: dashed; }
+    .cs-palette-swatch.disabled:hover { opacity: 0.45; }
+    .cs-palette-toggle {
+      position: absolute; bottom: -3px; right: -3px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(12, 13, 18, 0.9);
+      border: 1.5px solid rgba(255,255,255,0.25);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 6px; color: rgba(255,255,255,0.6); line-height: 1;
+      transition: background 0.12s, border-color 0.12s;
+      box-sizing: border-box;
     }
-    .cs-popover-add:hover { background: rgba(91, 156, 245, 0.22); }
-    .cs-popover-close {
-      background: none; border: none; color: rgba(255,255,255,0.3); font-size: 16px;
-      cursor: pointer; padding: 0; line-height: 1; transition: color 0.12s;
+    .cs-palette-toggle:hover { border-color: rgba(91, 156, 245, 0.6); }
+    .cs-palette-toggle.off { color: rgba(255,255,255,0.25); }
+    .cs-palette-swatch input[type="color"] {
+      position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;
     }
-    .cs-popover-close:hover { color: #5b9cf5; }
 
     /* Color input row */
     .cs-color-row { display: grid; grid-template-columns: 86px 1fr; align-items: center; gap: 7px; }
@@ -333,22 +364,6 @@ function injectStyles() {
     }
 
     /* Knob */
-    /* Matcap light sphere */
-    .cs-matcap {
-      width: 64px !important; height: 64px !important;
-      min-width: 64px; max-width: 64px;
-      min-height: 64px; max-height: 64px;
-      flex-shrink: 0;
-      border-radius: 50%;
-      cursor: crosshair;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06);
-    }
-    .cs-matcap canvas {
-      width: 64px !important; height: 64px !important;
-      display: block;
-    }
     .cs-pad-row {
       display: flex; align-items: center; gap: 10px;
     }
@@ -439,13 +454,168 @@ function injectStyles() {
       opacity: 0; transition: opacity 0.12s;
     }
     .cs-preset-tooltip.visible { opacity: 1; }
+
+    /* ── Render overlay ─────────────────────────────────────────────────── */
+    @keyframes cs-shimmer {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes cs-pulse-border {
+      0%, 100% { border-color: rgba(120, 80, 255, 0.25); }
+      50%      { border-color: rgba(120, 80, 255, 0.6); }
+    }
+    @keyframes cs-fade-in {
+      from { opacity: 0; transform: scale(0.95); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes cs-fade-out {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+    .cs-render-overlay {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      animation: cs-fade-in 0.3s ease-out;
+    }
+    .cs-render-overlay.done {
+      animation: cs-fade-out 0.8s ease-in 1.5s forwards;
+    }
+    .cs-render-card {
+      width: 340px; padding: 32px 36px;
+      background: linear-gradient(135deg, rgba(18, 18, 28, 0.95), rgba(28, 22, 42, 0.95));
+      border: 1px solid rgba(120, 80, 255, 0.3);
+      border-radius: 16px;
+      text-align: center;
+      animation: cs-fade-in 0.4s ease-out, cs-pulse-border 3s ease-in-out infinite;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(120, 80, 255, 0.08);
+    }
+    .cs-render-shimmer {
+      height: 3px; margin: 20px 0 16px;
+      border-radius: 2px; overflow: hidden;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .cs-render-shimmer-inner {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(120, 80, 255, 0.5) 30%,
+        rgba(200, 160, 255, 0.8) 50%,
+        rgba(120, 80, 255, 0.5) 70%,
+        transparent 100%);
+      background-size: 200% 100%;
+      animation: cs-shimmer 2s ease-in-out infinite;
+    }
+    .cs-render-progress {
+      height: 4px; margin: 0 0 18px;
+      border-radius: 2px; overflow: hidden;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .cs-render-progress-fill {
+      height: 100%; width: 0%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #7850ff, #b388ff);
+      transition: width 0.3s ease-out;
+    }
+    .cs-render-title {
+      font: 600 15px/1.3 'Inter', 'SF Pro Text', -apple-system, system-ui, sans-serif;
+      color: rgba(255, 255, 255, 0.92);
+      letter-spacing: 0.5px;
+    }
+    .cs-render-sub {
+      font: 400 11px/1.4 'Inter', 'SF Pro Text', -apple-system, system-ui, sans-serif;
+      color: rgba(255, 255, 255, 0.4);
+      margin-top: 4px;
+    }
+    .cs-render-percent {
+      font: 500 26px/1 'Inter', 'SF Pro Text', -apple-system, system-ui, sans-serif;
+      color: rgba(200, 170, 255, 0.9);
+      margin-top: 12px;
+      letter-spacing: 1px;
+    }
+    .cs-render-done-title {
+      font: 600 17px/1.3 'Inter', 'SF Pro Text', -apple-system, system-ui, sans-serif;
+      color: rgba(180, 160, 255, 1);
+      letter-spacing: 0.3px;
+    }
   `
   document.head.appendChild(s)
 }
 
+// ─── Render overlay ──────────────────────────────────────────────────────────
+
+function createRenderOverlay() {
+  const overlay = document.createElement('div')
+  overlay.className = 'cs-render-overlay'
+
+  const card = document.createElement('div')
+  card.className = 'cs-render-card'
+
+  const title = document.createElement('div')
+  title.className = 'cs-render-title'
+  title.textContent = 'Rendering…'
+
+  const sub = document.createElement('div')
+  sub.className = 'cs-render-sub'
+  sub.textContent = 'be patient, this takes a moment'
+
+  const shimmer = document.createElement('div')
+  shimmer.className = 'cs-render-shimmer'
+  const shimmerInner = document.createElement('div')
+  shimmerInner.className = 'cs-render-shimmer-inner'
+  shimmer.appendChild(shimmerInner)
+
+  const progressBar = document.createElement('div')
+  progressBar.className = 'cs-render-progress'
+  const progressFill = document.createElement('div')
+  progressFill.className = 'cs-render-progress-fill'
+  progressBar.appendChild(progressFill)
+
+  const percent = document.createElement('div')
+  percent.className = 'cs-render-percent'
+  percent.textContent = '0%'
+
+  card.appendChild(title)
+  card.appendChild(sub)
+  card.appendChild(shimmer)
+  card.appendChild(progressBar)
+  card.appendChild(percent)
+  overlay.appendChild(card)
+  document.body.appendChild(overlay)
+
+  return {
+    setProgress(p) {
+      const pct = Math.round(p * 100)
+      progressFill.style.width = `${pct}%`
+      percent.textContent = `${pct}%`
+    },
+    showDone() {
+      shimmer.style.display = 'none'
+      progressBar.style.display = 'none'
+      percent.style.display = 'none'
+      sub.style.display = 'none'
+      title.className = 'cs-render-done-title'
+      title.textContent = 'Your Video is Ready'
+      overlay.classList.add('done')
+      // Remove after fade-out animation completes
+      overlay.addEventListener('animationend', e => {
+        if (e.animationName === 'cs-fade-out') overlay.remove()
+      })
+    },
+    remove() { overlay.remove() },
+  }
+}
+
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
-export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions) {
+// Module-level refs for palette system (set by createControls)
+let _palettes = null
+let _buildRampFromPalette = null
+
+export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration, togglePause, snapshot, setAspectRatio, exportDimensions, palettes, buildRampFromPalette) {
+  _palettes = palettes
+  _buildRampFromPalette = buildRampFromPalette
   injectStyles()
 
   const panel = document.createElement('div')
@@ -477,25 +647,66 @@ function buildPresets(uniforms) {
   document.body.appendChild(tooltip)
 
   function capturePreset() {
-    const l1 = stopsFromUniforms(uniforms.layer1)
-    const l2 = stopsFromUniforms(uniforms.layer2)
-    return { layer1: l1, layer2: l2 }
+    return {
+      layer1: { main: [..._palettes.layer1.main], extras: [..._palettes.layer1.extras], enabled: [..._palettes.layer1.enabled] },
+      layer2: { main: [..._palettes.layer2.main], extras: [..._palettes.layer2.extras], enabled: [..._palettes.layer2.enabled] },
+    }
   }
 
   function loadPreset(data) {
-    applyRamp(data.layer1.map(s => ({ ...s })), uniforms.layer1)
-    applyRamp(data.layer2.map(s => ({ ...s })), uniforms.layer2)
-    // Refresh ramp bar visuals in the controls panel
-    document.querySelectorAll('.cs-ramp-bar').forEach((bar, i) => {
-      const u = i === 0 ? uniforms.layer1 : uniforms.layer2
-      bar.style.background = stopsToGradient(stopsFromUniforms(u), u.uOklab.value)
-    })
+    for (const key of ['layer1', 'layer2']) {
+      const p = _palettes[key]
+      const d = data[key]
+      // Handle legacy formats
+      if (Array.isArray(d)) {
+        p.main[0] = d[0] ? d[0].color : '#000000'
+        p.main[1] = d[d.length - 1] ? d[d.length - 1].color : '#ffffff'
+        for (let i = 0; i < 4; i++) {
+          p.extras[i] = d[i + 1] && i + 1 < d.length - 1 ? d[i + 1].color : '#808080'
+          p.enabled[i] = i + 1 < d.length - 1
+        }
+      } else if (d.colors) {
+        // Old 5-flat format
+        p.main[0] = d.colors[0]; p.main[1] = d.colors[4] || d.colors[d.colors.length - 1]
+        for (let i = 0; i < 4; i++) {
+          p.extras[i] = d.colors[i + 1] || '#808080'
+          p.enabled[i] = d.enabled[i + 1] !== undefined ? d.enabled[i + 1] : false
+        }
+      } else {
+        for (let i = 0; i < 2; i++) p.main[i] = d.main[i]
+        for (let i = 0; i < 4; i++) { p.extras[i] = d.extras[i]; p.enabled[i] = d.enabled[i] }
+      }
+      const ramp = _buildRampFromPalette(p)
+      uniforms[key].uRampColors.value.set(ramp.colors)
+      uniforms[key].uRampPositions.value.set(ramp.positions)
+      uniforms[key].uRampCount.value = ramp.count
+    }
+    // Refresh palette UI
+    for (const entry of uiRegistry) {
+      if (entry.type === 'palette') {
+        const p = _palettes[entry.layer]
+        entry.set({ main: [...p.main], extras: [...p.extras], enabled: [...p.enabled] })
+      }
+    }
   }
 
   function presetGradient(data) {
-    // Blend layer1 and layer2 stops into a combined preview
-    const all = [...data.layer1, ...data.layer2].sort((a, b) => a.pos - b.pos)
-    return `linear-gradient(135deg, ${all.map(s => `${s.color} ${(s.pos * 100).toFixed(0)}%`).join(', ')})`
+    const allColors = []
+    for (const key of ['layer1', 'layer2']) {
+      const d = data[key]
+      if (Array.isArray(d)) {
+        d.forEach(s => allColors.push(s.color))
+      } else if (d.main) {
+        allColors.push(d.main[0])
+        d.extras.forEach((c, i) => { if (d.enabled[i]) allColors.push(c) })
+        allColors.push(d.main[1])
+      } else if (d.colors) {
+        d.colors.forEach((c, i) => { if (d.enabled[i]) allColors.push(c) })
+      }
+    }
+    const n = allColors.length
+    const stops = allColors.map((c, i) => `${c} ${n > 1 ? ((i / (n - 1)) * 100).toFixed(0) : 0}%`).join(', ')
+    return `linear-gradient(135deg, ${stops})`
   }
 
   function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(presets)) }
@@ -569,18 +780,15 @@ function randomizeSettings(uniforms) {
       const s = 50 + Math.random() * 50
       const l = 30 + Math.random() * 40
       entry.set(hslToHex(h, s, l))
-    } else if (entry.type === 'ramp') {
-      const count = 2 + Math.floor(Math.random() * 4) // 2–5 stops
-      const stops = []
-      for (let i = 0; i < count; i++) {
-        const pos = i === 0 ? 0 : i === count - 1 ? 1 : Math.random()
-        const h = Math.random() * 360
-        const s = 50 + Math.random() * 50
-        const l = 30 + Math.random() * 40
-        stops.push({ pos, color: hslToHex(h, s, l) })
+    } else if (entry.type === 'palette') {
+      const randColor = () => {
+        const h = Math.random() * 360, s = 50 + Math.random() * 50, l = 30 + Math.random() * 40
+        return hslToHex(h, s, l)
       }
-      stops.sort((a, b) => a.pos - b.pos)
-      entry.set(stops)
+      const main = [randColor(), randColor()]
+      const extras = [randColor(), randColor(), randColor(), randColor()]
+      const enabled = extras.map(() => Math.random() > 0.3)
+      entry.set({ main, extras, enabled })
     }
   }
 
@@ -724,6 +932,76 @@ function makeSlider(label, min, max, value, step, onChange) {
   row.appendChild(lbl)
   row.appendChild(input)
   row.appendChild(val)
+  return row
+}
+
+const SPEED_SEGS = 10
+
+function makeSpeedBar(label, min, max, value, step, onChange) {
+  const row = document.createElement('div')
+  row.className = 'cs-speed-row'
+
+  const lbl = document.createElement('span')
+  lbl.className = 'cs-slider-label'
+  lbl.textContent = label
+
+  const bar = document.createElement('div')
+  bar.className = 'cs-speed-bar'
+
+  const pct = document.createElement('span')
+  pct.className = 'cs-speed-pct'
+
+  let current = value
+  const segs = []
+
+  for (let i = 0; i < SPEED_SEGS; i++) {
+    const seg = document.createElement('div')
+    seg.className = 'cs-speed-seg'
+    bar.appendChild(seg)
+    segs.push(seg)
+  }
+
+  function refresh() {
+    const t = (current - min) / (max - min)
+    const filledCount = Math.round(t * SPEED_SEGS)
+    pct.textContent = `${Math.round(t * 100)}%`
+    segs.forEach((s, i) => {
+      const on = i < filledCount
+      s.classList.toggle('on', on)
+      if (on) {
+        const segT = filledCount > 1 ? i / (filledCount - 1) : 0
+        const h = 215 + segT * 10   // blue range
+        const l = 58 - segT * 14
+        s.style.setProperty('--seg-color', `hsl(${h}, 70%, ${l}%)`)
+      }
+    })
+  }
+
+  function setFromClick(e) {
+    const rect = bar.getBoundingClientRect()
+    const t = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const raw = min + t * (max - min)
+    current = Math.round(raw / step) * step
+    current = Math.min(max, Math.max(min, current))
+    onChange(current)
+    refresh()
+  }
+
+  let dragging = false
+  bar.addEventListener('mousedown', e => { dragging = true; setFromClick(e) })
+  document.addEventListener('mousemove', e => { if (dragging) setFromClick(e) })
+  document.addEventListener('mouseup', () => { dragging = false })
+
+  if (_regLayer) {
+    uiRegistry.push({ type: 'slider', layer: _regLayer, min, max, step,
+      set(v) { current = v; onChange(v); refresh() }
+    })
+  }
+
+  row.appendChild(lbl)
+  row.appendChild(bar)
+  row.appendChild(pct)
+  refresh()
   return row
 }
 
@@ -883,111 +1161,6 @@ function makeKnob(label, min, max, value, step, onChange) {
   return row
 }
 
-function makeMatcapSphere(uniformAngle) {
-  const SIZE = 128 // canvas pixels (2x for retina on 64px display)
-  const R = SIZE / 2
-
-  const wrap = document.createElement('div')
-  wrap.className = 'cs-matcap'
-
-  const canvas = document.createElement('canvas')
-  canvas.width = SIZE
-  canvas.height = SIZE
-  canvas.style.cssText = 'width:64px;height:64px;display:block;'
-  wrap.appendChild(canvas)
-  const ctx = canvas.getContext('2d')
-
-  // Light position on hemisphere surface, normalized [-1..1]
-  let lx = Math.cos(uniformAngle.value) * 0.6
-  let ly = -Math.sin(uniformAngle.value) * 0.6
-
-  function draw() {
-    const img = ctx.createImageData(SIZE, SIZE)
-    const data = img.data
-
-    for (let y = 0; y < SIZE; y++) {
-      for (let x = 0; x < SIZE; x++) {
-        // Normalized coords [-1, 1]
-        const nx = (x - R) / (R - 1)
-        const ny = (y - R) / (R - 1)
-        const r2 = nx * nx + ny * ny
-
-        if (r2 > 1.0) continue // outside sphere
-
-        // Surface normal on unit hemisphere
-        const nz = Math.sqrt(1.0 - r2)
-
-        // Light direction from matcap position
-        const lz = Math.sqrt(Math.max(0, 1.0 - lx * lx - ly * ly))
-        const len = Math.sqrt(lx * lx + ly * ly + lz * lz)
-        const Lx = lx / len, Ly = ly / len, Lz = lz / len
-
-        // Diffuse (half-Lambert for softer wrap)
-        const NdotL = nx * Lx + ny * Ly + nz * Lz
-        const diffuse = NdotL * 0.5 + 0.5
-
-        // Specular (Blinn-Phong)
-        const Hx = Lx, Hy = Ly, Hz = Lz + 1.0
-        const hLen = Math.sqrt(Hx * Hx + Hy * Hy + Hz * Hz)
-        const NdotH = (nx * Hx + ny * Hy + nz * Hz) / hLen
-        const spec = Math.pow(Math.max(NdotH, 0), 40) * 0.9
-
-        // Fresnel rim — brighter at glancing angles
-        const fresnel = Math.pow(1.0 - nz, 3) * 0.25
-
-        // Compose: dark base + blue-tinted diffuse + white spec + rim
-        const base = 0.06
-        const d = diffuse * diffuse // gamma-ish boost for depth
-        const rr = base + d * 0.25 + spec * 0.9 + fresnel * 0.3
-        const gg = base + d * 0.30 + spec * 0.95 + fresnel * 0.45
-        const bb = base + d * 0.45 + spec * 1.0 + fresnel * 0.7
-
-        // Edge softness — anti-alias the rim
-        const edge = 1.0 - smoothClamp((Math.sqrt(r2) - 0.96) / 0.04)
-
-        const i = (y * SIZE + x) * 4
-        data[i]     = Math.min(255, (rr * 255) | 0) * edge
-        data[i + 1] = Math.min(255, (gg * 255) | 0) * edge
-        data[i + 2] = Math.min(255, (bb * 255) | 0) * edge
-        data[i + 3] = edge * 255
-      }
-    }
-    ctx.putImageData(img, 0, 0)
-  }
-
-  function smoothClamp(t) { return t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t) }
-
-  draw()
-
-  function updateFromPointer(e) {
-    const rect = wrap.getBoundingClientRect()
-    const px = (e.clientX - rect.left) / rect.width * 2 - 1
-    const py = (e.clientY - rect.top) / rect.height * 2 - 1
-    const dist = Math.sqrt(px * px + py * py)
-    if (dist > 1.0) return
-
-    lx = px * 0.7
-    ly = py * 0.7
-    // Shader uses atan2(sin, cos) with Y-up; screen Y is down
-    uniformAngle.value = Math.atan2(-py, px)
-    draw()
-  }
-
-  let dragging = false
-  wrap.addEventListener('pointerdown', e => {
-    e.preventDefault()
-    dragging = true
-    wrap.setPointerCapture(e.pointerId)
-    updateFromPointer(e)
-  })
-  wrap.addEventListener('pointermove', e => {
-    if (dragging) updateFromPointer(e)
-  })
-  wrap.addEventListener('pointerup', () => { dragging = false })
-  wrap.addEventListener('lostpointercapture', () => { dragging = false })
-
-  return wrap
-}
 
 function makeDualSlider(labelA, labelB, min, max, valA, valB, step, onChangeA, onChangeB) {
   const row = document.createElement('div')
@@ -1087,6 +1260,7 @@ function makePositionPad(unifX, unifY) {
   })
 
   positionDot()
+  pad._sync = positionDot
   return pad
 }
 
@@ -1268,272 +1442,125 @@ function makeSingleColor(label, uniform) {
 
 // ─── Compact color ramp + popover ─────────────────────────────────────────────
 
-function makeCompactRamp(initialStops, onRampChange, layerLabel, getOklab = () => false) {
-  let stops = initialStops.map(s => ({ ...s }))
+function makeColorPalette(palette, u, layerKey, getOklab = () => false) {
+  const row = document.createElement('div')
+  row.className = 'cs-palette-row'
 
-  const wrap = document.createElement('div')
-  wrap.className = 'cs-ramp-compact'
+  function applyPalette() {
+    const ramp = _buildRampFromPalette(palette)
+    u.uRampColors.value.set(ramp.colors)
+    u.uRampPositions.value.set(ramp.positions)
+    u.uRampCount.value = ramp.count
+  }
 
-  const bar = document.createElement('div')
-  bar.className = 'cs-ramp-bar'
-  bar.style.background = stopsToGradient(stops, getOklab())
+  // --- 2 main swatches (always on) ---
+  const mainEls = []
+  for (let i = 0; i < 2; i++) {
+    const swatch = document.createElement('div')
+    swatch.className = 'cs-palette-swatch main'
+    swatch.style.background = palette.main[i]
 
-  const editBtn = document.createElement('button')
-  editBtn.className = 'cs-ramp-edit'
-  editBtn.textContent = 'Edit'
+    const colorInput = document.createElement('input')
+    colorInput.type = 'color'
+    colorInput.value = palette.main[i]
+    swatch.appendChild(colorInput)
 
-  wrap.appendChild(bar)
-  wrap.appendChild(editBtn)
-
-  // Build popover (appended to body so it escapes panel overflow)
-  const popover = buildRampPopover(layerLabel, stops, newStops => {
-    stops = newStops
-    bar.style.background = stopsToGradient(stops, getOklab())
-    onRampChange(stops)
-  }, getOklab)
-  document.body.appendChild(popover)
-
-  function openPopover(e) {
-    e.stopPropagation()
-    // Close any other open popovers
-    document.querySelectorAll('.cs-popover:not(.hidden)').forEach(p => {
-      if (p !== popover) p.classList.add('hidden')
+    swatch.addEventListener('click', () => colorInput.click())
+    colorInput.addEventListener('input', () => {
+      palette.main[i] = colorInput.value
+      swatch.style.background = colorInput.value
+      applyPalette()
     })
-    popover.classList.remove('hidden')
-    const rect = wrap.getBoundingClientRect()
-    const pw = 238, ph = 230
-    let left = rect.left - pw - 10
-    if (left < 8) left = Math.min(rect.right + 8, window.innerWidth - pw - 8)
-    let top = rect.top
-    if (top + ph > window.innerHeight - 8) top = window.innerHeight - ph - 8
-    popover.style.left = `${Math.max(8, left)}px`
-    popover.style.top  = `${Math.max(8, top)}px`
+
+    row.appendChild(swatch)
+    mainEls.push(swatch)
   }
 
-  bar.addEventListener('click', openPopover)
-  editBtn.addEventListener('click', openPopover)
+  // --- Separator ---
+  const sep = document.createElement('div')
+  sep.className = 'cs-palette-sep'
+  row.appendChild(sep)
 
-  document.addEventListener('click', e => {
-    if (!popover.classList.contains('hidden') && !popover.contains(e.target)) {
-      popover.classList.add('hidden')
-    }
-  })
+  // --- 4 extra swatches (toggleable) ---
+  const extraEls = []
 
-  // Allow external sync when oklab toggle changes — refreshes both gradient bars
-  wrap._syncOklab = () => {
-    bar.style.background = stopsToGradient(stops, getOklab())
-    if (popover._syncOklab) popover._syncOklab()
+  function refreshExtras() {
+    extraEls.forEach((sw, i) => {
+      sw.style.background = palette.extras[i]
+      sw.classList.toggle('disabled', !palette.enabled[i])
+      const tog = sw.querySelector('.cs-palette-toggle')
+      if (tog) {
+        tog.textContent = palette.enabled[i] ? '\u2713' : ''
+        tog.classList.toggle('off', !palette.enabled[i])
+      }
+    })
   }
 
+  for (let i = 0; i < 4; i++) {
+    const swatch = document.createElement('div')
+    swatch.className = `cs-palette-swatch${palette.enabled[i] ? '' : ' disabled'}`
+    swatch.style.background = palette.extras[i]
+
+    const colorInput = document.createElement('input')
+    colorInput.type = 'color'
+    colorInput.value = palette.extras[i]
+    swatch.appendChild(colorInput)
+
+    swatch.addEventListener('click', e => {
+      if (e.target.classList.contains('cs-palette-toggle')) return
+      colorInput.click()
+    })
+    colorInput.addEventListener('input', () => {
+      palette.extras[i] = colorInput.value
+      swatch.style.background = colorInput.value
+      applyPalette()
+    })
+
+    const toggle = document.createElement('div')
+    toggle.className = `cs-palette-toggle${palette.enabled[i] ? '' : ' off'}`
+    toggle.textContent = palette.enabled[i] ? '\u2713' : ''
+    toggle.addEventListener('click', e => {
+      e.stopPropagation()
+      palette.enabled[i] = !palette.enabled[i]
+      refreshExtras()
+      applyPalette()
+    })
+    swatch.appendChild(toggle)
+
+    row.appendChild(swatch)
+    extraEls.push(swatch)
+  }
+
+  row._syncOklab = () => {}
+
+  // Register for randomize
   if (_regLayer) {
-    uiRegistry.push({ type: 'ramp', layer: _regLayer,
-      set(newStops) {
-        stops = newStops.map(s => ({ ...s }))
-        bar.style.background = stopsToGradient(stops, getOklab())
-        onRampChange(stops)
-      }
-    })
-  }
-
-  return wrap
-}
-
-function buildRampPopover(layerLabel, initialStops, onRampChange, getOklab = () => false) {
-  let stops = initialStops.map(s => ({ ...s }))
-
-  const popover = document.createElement('div')
-  popover.className = 'cs-popover hidden'
-
-  // Header
-  const hdr = document.createElement('div')
-  hdr.className = 'cs-popover-hdr'
-
-  const title = document.createElement('span')
-  title.className = 'cs-popover-title'
-  title.textContent = `${layerLabel} Colors`
-
-  const addBtn = document.createElement('button')
-  addBtn.className = 'cs-popover-add'
-  addBtn.textContent = '+ stop'
-
-  const closeBtn = document.createElement('button')
-  closeBtn.className = 'cs-popover-close'
-  closeBtn.textContent = '×'
-  closeBtn.addEventListener('click', () => popover.classList.add('hidden'))
-
-  hdr.appendChild(title)
-  hdr.appendChild(addBtn)
-  hdr.appendChild(closeBtn)
-  popover.appendChild(hdr)
-
-  // Gradient bar
-  const bar = document.createElement('div')
-  bar.style.cssText = `width:100%;height:18px;border-radius:4px;cursor:crosshair;border:1px solid rgba(255,255,255,0.12);box-sizing:border-box;margin-top:2px;`
-
-  const markersWrap = document.createElement('div')
-  markersWrap.style.cssText = 'position:relative;width:100%;height:22px'
-
-  popover.appendChild(bar)
-  popover.appendChild(markersWrap)
-
-  // Hex input row
-  let activeStop = null
-  const hexRow = document.createElement('div')
-  hexRow.style.cssText = 'display:none;align-items:center;gap:6px'
-
-  const hexLbl = document.createElement('span')
-  hexLbl.style.cssText = 'font-size:10px;opacity:.4;white-space:nowrap;flex-shrink:0'
-  hexLbl.textContent = 'hex'
-
-  const hexInput = document.createElement('input')
-  hexInput.type = 'text'
-  hexInput.maxLength = 7
-  hexInput.style.cssText = 'flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:3px;color:#fff;font:11px monospace;padding:2px 5px;outline:none'
-
-  const hexPreview = document.createElement('div')
-  hexPreview.style.cssText = 'width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(255,255,255,0.18)'
-
-  hexRow.append(hexLbl, hexInput, hexPreview)
-  popover.appendChild(hexRow)
-
-  hexInput.addEventListener('input', () => {
-    if (!activeStop) return
-    const raw = hexInput.value.trim()
-    const hex = raw.startsWith('#') ? raw : '#' + raw
-    if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return
-    activeStop.color = hex
-    hexPreview.style.background = hex
-    bar.style.background = stopsToGradient(stops, getOklab())
-    const idx = stops.indexOf(activeStop)
-    if (idx >= 0 && markersWrap.children[idx]) {
-      markersWrap.children[idx].children[1].style.background = hex
-    }
-    onRampChange(stops)
-  })
-
-  // Drag state
-  let drag = null
-
-  document.addEventListener('mousemove', e => {
-    if (!drag) return
-    const rect = bar.getBoundingClientRect()
-    const newPos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    drag.stop.pos = newPos
-    drag.marker.style.left = `${newPos * 100}%`
-    bar.style.background = stopsToGradient([...stops].sort((a, b) => a.pos - b.pos), getOklab())
-  })
-
-  document.addEventListener('mouseup', () => {
-    if (!drag) return
-    drag = null
-    stops.sort((a, b) => a.pos - b.pos)
-    redraw()
-    onRampChange(stops)
-  })
-
-  function redraw() {
-    activeStop = null
-    hexRow.style.display = 'none'
-    bar.style.background = stopsToGradient(stops, getOklab())
-    markersWrap.innerHTML = ''
-    addBtn.disabled = stops.length >= MAX_STOPS
-    addBtn.style.opacity = stops.length >= MAX_STOPS ? '0.3' : '1'
-
-    stops.forEach(stop => {
-      const marker = document.createElement('div')
-      marker.style.cssText = `position:absolute;top:0;transform:translateX(-50%);left:${stop.pos * 100}%;width:18px;height:22px;display:flex;flex-direction:column;align-items:center;cursor:grab;user-select:none;`
-
-      const triangle = document.createElement('div')
-      triangle.style.cssText = `width:0;height:0;flex-shrink:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:6px solid rgba(255,255,255,0.75);`
-
-      const swatch = document.createElement('div')
-      swatch.style.cssText = `width:16px;height:14px;border-radius:3px;flex-shrink:0;background:${stop.color};border:1px solid rgba(255,255,255,0.28);position:relative;cursor:pointer;`
-
-      const closeX = document.createElement('div')
-      closeX.textContent = '×'
-      closeX.style.cssText = `position:absolute;top:-4px;right:-4px;width:10px;height:10px;line-height:10px;text-align:center;font-size:9px;border-radius:50%;background:rgba(255,60,60,0.85);color:#fff;display:none;cursor:pointer;`
-
-      if (stops.length > 2) {
-        swatch.addEventListener('mouseenter', () => { closeX.style.display = 'block' })
-        swatch.addEventListener('mouseleave', () => { closeX.style.display = 'none' })
-        closeX.addEventListener('mouseenter', () => { closeX.style.display = 'block' })
-        closeX.addEventListener('mouseleave', () => { closeX.style.display = 'none' })
-        closeX.addEventListener('click', e => {
-          e.stopPropagation()
-          stops = stops.filter(s => s !== stop)
-          redraw()
-          onRampChange(stops)
-        })
-      }
-      swatch.appendChild(closeX)
-
-      const colorInput = document.createElement('input')
-      colorInput.type = 'color'
-      colorInput.value = stop.color
-      colorInput.style.cssText = 'position:absolute;opacity:0;width:1px;height:1px;pointer-events:none'
-      swatch.appendChild(colorInput)
-
-      swatch.addEventListener('click', e => {
-        e.stopPropagation()
-        activeStop = stop
-        hexInput.value = stop.color
-        hexPreview.style.background = stop.color
-        hexRow.style.display = 'flex'
-        colorInput.click()
-      })
-
-      colorInput.addEventListener('input', () => {
-        stop.color = colorInput.value
-        swatch.style.background = stop.color
-        bar.style.background = stopsToGradient(stops, getOklab())
-        if (activeStop === stop) {
-          hexInput.value = stop.color
-          hexPreview.style.background = stop.color
+    uiRegistry.push({ type: 'palette', layer: _regLayer,
+      set({ main, extras, enabled }) {
+        for (let i = 0; i < 2; i++) palette.main[i] = main[i]
+        for (let i = 0; i < 4; i++) {
+          palette.extras[i] = extras[i]
+          palette.enabled[i] = enabled[i]
         }
-        onRampChange(stops)
-      })
-
-      marker.addEventListener('mousedown', e => {
-        if (e.target === swatch || swatch.contains(e.target)) return
-        e.preventDefault()
-        drag = { stop, marker }
-        marker.style.cursor = 'grabbing'
-      })
-
-      marker.appendChild(triangle)
-      marker.appendChild(swatch)
-      markersWrap.appendChild(marker)
+        mainEls.forEach((sw, i) => {
+          sw.style.background = palette.main[i]
+          const ci = sw.querySelector('input[type="color"]')
+          if (ci) ci.value = palette.main[i]
+        })
+        extraEls.forEach((sw, i) => {
+          sw.style.background = palette.extras[i]
+          const ci = sw.querySelector('input[type="color"]')
+          if (ci) ci.value = palette.extras[i]
+        })
+        refreshExtras()
+        applyPalette()
+      }
     })
   }
 
-  bar.addEventListener('click', e => {
-    if (stops.length >= MAX_STOPS) return
-    const rect = bar.getBoundingClientRect()
-    const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
-    stops.push({ pos, color: lerpStops(stops, pos, getOklab()) })
-    stops.sort((a, b) => a.pos - b.pos)
-    redraw()
-    onRampChange(stops)
-  })
-
-  addBtn.addEventListener('click', () => {
-    if (stops.length >= MAX_STOPS) return
-    let maxGap = -1, insertPos = 0.5
-    for (let i = 1; i < stops.length; i++) {
-      const gap = stops[i].pos - stops[i - 1].pos
-      if (gap > maxGap) { maxGap = gap; insertPos = (stops[i].pos + stops[i - 1].pos) / 2 }
-    }
-    stops.push({ pos: insertPos, color: lerpStops(stops, insertPos, getOklab()) })
-    stops.sort((a, b) => a.pos - b.pos)
-    redraw()
-    onRampChange(stops)
-  })
-
-  // Allow external refresh when oklab mode changes
-  popover._syncOklab = () => redraw()
-
-  redraw()
-  return popover
+  applyPalette()
+  refreshExtras()
+  return row
 }
 
 // ─── LAYERS section ───────────────────────────────────────────────────────────
@@ -1584,9 +1611,6 @@ function buildGradientLayerSub(label, u, layerKey) {
     const clothPill = document.createElement('button')
     clothPill.className = 'cs-pill'
     clothPill.textContent = 'Cloth'
-    const liquidPill = document.createElement('button')
-    liquidPill.className = 'cs-pill'
-    liquidPill.textContent = 'Liquid'
     // Slide-specific: band count
     const countRow = makeSlider('count', 0.5, 10, u.uLinearCount.value, 0.1,
       v => { u.uLinearCount.value = v })
@@ -1596,73 +1620,74 @@ function buildGradientLayerSub(label, u, layerKey) {
       v => { u.uClothScale.value = v })
     const clothDetailRow = makeSlider('detail', 0, 1, u.uClothDetail.value, 0.01,
       v => { u.uClothDetail.value = v })
-    const liquidDetailRow = makeSlider('detail', 0, 0.3, Math.min(u.uClothDetail.value, 0.3), 0.01,
-      v => { u.uClothDetail.value = v })
 
     function syncLinearMotion() {
       const m = u.uLinearMotion.value
       slidePill.classList.toggle('active', m === 0)
       clothPill.classList.toggle('active', m === 1)
-      liquidPill.classList.toggle('active', m === 2)
-      // Slide: curve + count. Cloth: fold + detail. Liquid: fold + detail.
       curveRow.style.display        = m === 0 ? '' : 'none'
       countRow.style.display        = m === 0 ? '' : 'none'
-      foldRow.style.display         = m >= 1 ? '' : 'none'
+      foldRow.style.display         = m === 1 ? '' : 'none'
       clothDetailRow.style.display  = m === 1 ? '' : 'none'
-      liquidDetailRow.style.display = m === 2 ? '' : 'none'
-      dirRow.style.display          = m === 2 ? 'none' : ''
+      seedBtn.style.display         = m === 1 ? '' : 'none'
     }
     slidePill.addEventListener('click', () => { u.uLinearMotion.value = 0; syncLinearMotion() })
     clothPill.addEventListener('click', () => { u.uLinearMotion.value = 1; syncLinearMotion() })
-    liquidPill.addEventListener('click', () => { u.uLinearMotion.value = 2; syncLinearMotion() })
     motionPills.appendChild(slidePill)
     motionPills.appendChild(clothPill)
-    motionPills.appendChild(liquidPill)
     motionRow.appendChild(motionLbl)
     motionRow.appendChild(motionPills)
 
-    linearGroup.appendChild(motionRow)
+    // Distort toggle + panel with 3 knobs
+    const distortRow = document.createElement('div')
+    distortRow.className = 'cs-field-row'
+    const distortLbl = document.createElement('span')
+    distortLbl.className = 'cs-field-label'
+    distortLbl.textContent = 'Distort'
+    distortRow.appendChild(distortLbl)
+
+    const distortPanel = document.createElement('div')
+    distortPanel.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+    const distortKnobs = document.createElement('div')
+    distortKnobs.className = 'cs-knob-pair'
+    distortKnobs.appendChild(makeKnob('distort', 0, 2, u.uDistortAmt.value, 0.01,
+      v => { u.uDistortAmt.value = v }))
+    distortKnobs.appendChild(makeKnob('amp', 0, 2, u.uWaveAmp.value, 0.01,
+      v => { u.uWaveAmp.value = v }))
+    distortKnobs.appendChild(makeKnob('freq', 0.5, 15, u.uWaveFreq.value, 0.1,
+      v => { u.uWaveFreq.value = v }))
+    distortPanel.appendChild(distortKnobs)
+
+    let distortOn = u.uWaveAmp.value > 0 || u.uDistortAmt.value > 0
+    function syncDistort() {
+      distortPanel.style.display = distortOn ? 'flex' : 'none'
+    }
+    distortRow.appendChild(makeToggle(distortOn, v => {
+      distortOn = v
+      if (!v) { u.uWaveAmp.value = 0.0; u.uDistortAmt.value = 0.0 }
+      syncDistort()
+    }))
+
+    // Seed button for cloth mode (created before syncLinearMotion)
+    const seedBtn = document.createElement('button')
+    seedBtn.className = 'cs-seed-btn'
+    seedBtn.textContent = 'seed'
+    seedBtn.title = 'Randomize cloth pattern'
+    seedBtn.style.display = 'none'
+    seedBtn.addEventListener('click', () => {
+      u.uClothSeed.value = Math.floor(Math.random() * 100)
+    })
+
     linearGroup.appendChild(dirRow)
     linearGroup.appendChild(curveRow)
     linearGroup.appendChild(countRow)
     linearGroup.appendChild(foldRow)
     linearGroup.appendChild(clothDetailRow)
-    linearGroup.appendChild(liquidDetailRow)
+
+    linearGroup.appendChild(distortRow)
+    linearGroup.appendChild(distortPanel)
     syncLinearMotion()
-
-    // Relief 3D toggle + detail sliders
-    const reliefRow = document.createElement('div')
-    reliefRow.className = 'cs-field-row'
-    const reliefLbl = document.createElement('span')
-    reliefLbl.className = 'cs-field-label'
-    reliefLbl.textContent = 'Relief'
-    reliefRow.appendChild(reliefLbl)
-
-    const reliefDetails = document.createElement('div')
-    reliefDetails.style.cssText = 'display:none;flex-direction:column;gap:8px;'
-    reliefDetails.appendChild(makeSlider('shadow', 0, 1, u.uShadowDepth.value, 0.01,
-      v => { u.uShadowDepth.value = v }))
-    reliefDetails.appendChild(makeSlider('light angle°', 0, 360, Math.round(u.uLightAngle.value * 180 / Math.PI), 1,
-      v => { u.uLightAngle.value = v * Math.PI / 180 }))
-    reliefDetails.appendChild(makeSingleColor('light color', u.uLightColor))
-
-    function syncRelief() {
-      const on = u.uRipple.value > 0.0
-      reliefDetails.style.display = on ? 'flex' : 'none'
-    }
-
-    reliefRow.appendChild(makeToggle(u.uRipple.value > 0, v => {
-      u.uRipple.value = v ? 1.0 : 0.0
-      syncRelief()
-    }))
-
-    linearGroup.appendChild(reliefRow)
-    linearGroup.appendChild(reliefDetails)
-    syncRelief()
-
-    // Matcap light sphere (created early — syncRipple references it)
-    const matcapSphere = makeMatcapSphere(u.uLightAngle)
-    matcapSphere.style.display = 'none'
+    syncDistort()
 
     // Radial-specific controls: ripple toggle + compact 3D controls
     const radialGroup = document.createElement('div')
@@ -1693,7 +1718,6 @@ function buildGradientLayerSub(label, u, layerKey) {
     function syncRipple() {
       const on = u.uRipple.value > 0.0
       rippleDetails.style.display = on ? 'flex' : 'none'
-      matcapSphere.style.display = (on && u.uMode.value === 0) ? '' : 'none'
     }
 
     rippleRow.appendChild(makeToggle(u.uRipple.value > 0, v => {
@@ -1704,6 +1728,40 @@ function buildGradientLayerSub(label, u, layerKey) {
     radialGroup.appendChild(rippleRow)
     radialGroup.appendChild(rippleDetails)
     syncRipple()
+
+    // Radial distort toggle + panel with 3 knobs
+    const radDistortRow = document.createElement('div')
+    radDistortRow.className = 'cs-field-row'
+    const radDistortLbl = document.createElement('span')
+    radDistortLbl.className = 'cs-field-label'
+    radDistortLbl.textContent = 'Distort'
+    radDistortRow.appendChild(radDistortLbl)
+
+    const radDistortPanel = document.createElement('div')
+    radDistortPanel.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+    const radDistortKnobs = document.createElement('div')
+    radDistortKnobs.className = 'cs-knob-pair'
+    radDistortKnobs.appendChild(makeKnob('distort', 0, 2, u.uDistortAmt.value, 0.01,
+      v => { u.uDistortAmt.value = v }))
+    radDistortKnobs.appendChild(makeKnob('amp', 0, 2, u.uWaveAmp.value, 0.01,
+      v => { u.uWaveAmp.value = v }))
+    radDistortKnobs.appendChild(makeKnob('freq', 0.5, 15, u.uWaveFreq.value, 0.1,
+      v => { u.uWaveFreq.value = v }))
+    radDistortPanel.appendChild(radDistortKnobs)
+
+    let radDistortOn = u.uWaveAmp.value > 0 || u.uDistortAmt.value > 0
+    function syncRadDistort() {
+      radDistortPanel.style.display = radDistortOn ? 'flex' : 'none'
+    }
+    radDistortRow.appendChild(makeToggle(radDistortOn, v => {
+      radDistortOn = v
+      if (!v) { u.uWaveAmp.value = 0.0; u.uDistortAmt.value = 0.0 }
+      syncRadDistort()
+    }))
+
+    radialGroup.appendChild(radDistortRow)
+    radialGroup.appendChild(radDistortPanel)
+    syncRadDistort()
 
     // Sweep-specific controls
     const sweepGroup = document.createElement('div')
@@ -1733,66 +1791,158 @@ function buildGradientLayerSub(label, u, layerKey) {
     hypDashboard.appendChild(knobPair)
     hypnoticGroup.appendChild(hypDashboard)
 
+    // Metaball-specific controls
+    const metaballGroup = document.createElement('div')
+    metaballGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
 
+    const metaBallCountRow = makeSlider('balls', 2, 15, u.uMetaBallCount.value, 1,
+      v => { u.uMetaBallCount.value = v })
+    metaballGroup.appendChild(metaBallCountRow)
 
-    function syncMode() {
+    const metaSizeRow = makeSlider('size', 0.03, 0.4, u.uMetaSize.value, 0.01,
+      v => { u.uMetaSize.value = v })
+    metaballGroup.appendChild(metaSizeRow)
+
+    const metaKnobs = document.createElement('div')
+    metaKnobs.className = 'cs-knob-pair'
+    metaKnobs.appendChild(makeKnob('elasticity', 0.3, 3, u.uMetaElasticity.value, 0.01,
+      v => { u.uMetaElasticity.value = v }))
+    metaKnobs.appendChild(makeKnob('softness', 0, 1, u.uMetaSoftness.value, 0.01,
+      v => { u.uMetaSoftness.value = v }))
+    metaKnobs.appendChild(makeKnob('spread', 0.2, 2, u.uMetaSpread.value, 0.01,
+      v => { u.uMetaSpread.value = v }))
+    metaKnobs.appendChild(makeKnob('chaos', 0, 1, u.uMetaChaos.value, 0.01,
+      v => { u.uMetaChaos.value = v }))
+    metaballGroup.appendChild(metaKnobs)
+
+    // Invert toggle
+    const metaInvertRow = document.createElement('div')
+    metaInvertRow.className = 'cs-field-row'
+    const metaInvertLbl = document.createElement('span')
+    metaInvertLbl.className = 'cs-field-label'
+    metaInvertLbl.textContent = 'Invert'
+    metaInvertRow.appendChild(metaInvertLbl)
+    metaInvertRow.appendChild(makeToggle(u.uMetaInvert.value > 0.5, v => {
+      u.uMetaInvert.value = v ? 1.0 : 0.0
+    }))
+    metaballGroup.appendChild(metaInvertRow)
+
+    // Seed button for metaball
+    const metaSeedBtn = document.createElement('button')
+    metaSeedBtn.className = 'cs-seed-btn'
+    metaSeedBtn.textContent = 'seed'
+    metaSeedBtn.title = 'Randomize blob pattern'
+    metaSeedBtn.addEventListener('click', () => {
+      u.uMetaSeed.value = Math.floor(Math.random() * 100)
+    })
+
+    // Radial sub-type pills: Standard | Sweep | Hypnotic
+    const radialTypeRow = document.createElement('div')
+    radialTypeRow.className = 'cs-field-row'
+    const radialTypeLbl = document.createElement('span')
+    radialTypeLbl.className = 'cs-field-label'
+    radialTypeLbl.textContent = 'Type'
+    const radialTypePills = document.createElement('div')
+    radialTypePills.className = 'cs-pills'
+
+    const radialStd_ = document.createElement('button')
+    radialStd_.className = 'cs-pill'
+    radialStd_.textContent = 'Standard'
+    const radialSweep_ = document.createElement('button')
+    radialSweep_.className = 'cs-pill'
+    radialSweep_.textContent = 'Sweep'
+    const radialHypnotic_ = document.createElement('button')
+    radialHypnotic_.className = 'cs-pill'
+    radialHypnotic_.textContent = 'Hypnotic'
+
+    function syncRadialType() {
       const mode = u.uMode.value
-      radial_.classList.toggle('active', mode === 0)
-      linear_.classList.toggle('active', mode === 1)
-      sweep_.classList.toggle('active', mode === 2)
-      hypnotic_.classList.toggle('active', mode === 3)
-      radialGroup.style.display   = mode === 0 ? 'flex' : 'none'
-      linearGroup.style.display   = mode === 1 ? 'flex' : 'none'
-      sweepGroup.style.display    = mode === 2 ? 'flex' : 'none'
+      radialStd_.classList.toggle('active', mode === 0)
+      radialSweep_.classList.toggle('active', mode === 2)
+      radialHypnotic_.classList.toggle('active', mode === 3)
+      rippleRow.style.display = mode === 0 ? '' : 'none'
+      rippleDetails.style.display = (mode === 0 && u.uRipple.value > 0) ? 'flex' : 'none'
+      sweepGroup.style.display = mode === 2 ? 'flex' : 'none'
       hypnoticGroup.style.display = mode === 3 ? 'flex' : 'none'
       speedRow.style.display = mode === 3 ? 'none' : ''
       posPad.style.display = (mode === 0 || mode === 2) ? '' : 'none'
-      matcapSphere.style.display = (mode === 0 && u.uRipple.value > 0) ? '' : 'none'
+    }
+
+    radialStd_.addEventListener('click', () => { u.uMode.value = 0; syncRadialType() })
+    radialSweep_.addEventListener('click', () => { u.uMode.value = 2; syncRadialType() })
+    radialHypnotic_.addEventListener('click', () => { u.uMode.value = 3; syncRadialType() })
+
+    radialTypePills.appendChild(radialStd_)
+    radialTypePills.appendChild(radialSweep_)
+    radialTypePills.appendChild(radialHypnotic_)
+    radialTypeRow.appendChild(radialTypeLbl)
+    radialTypeRow.appendChild(radialTypePills)
+
+    // Append sweep/hypnotic groups into radialGroup
+    radialGroup.appendChild(sweepGroup)
+    radialGroup.appendChild(hypnoticGroup)
+
+    function syncMode() {
+      const mode = u.uMode.value
+      const isRadialFamily = (mode === 0 || mode === 2 || mode === 3)
+      radial_.classList.toggle('active', isRadialFamily)
+      linear_.classList.toggle('active', mode === 1)
+      metaball_.classList.toggle('active', mode === 4)
+      radialTypeRow.style.display = isRadialFamily ? '' : 'none'
+      motionRow.style.display = mode === 1 ? '' : 'none'
+      radialGroup.style.display = isRadialFamily ? 'flex' : 'none'
+      linearGroup.style.display = mode === 1 ? 'flex' : 'none'
+      metaballGroup.style.display = mode === 4 ? 'flex' : 'none'
+      metaSeedBtn.style.display = mode === 4 ? '' : 'none'
+      syncRadialType()
     }
 
     const radial_ = document.createElement('button')
     radial_.className = 'cs-pill'
     radial_.textContent = 'Radial'
-    radial_.addEventListener('click', () => { u.uMode.value = 0; syncMode() })
+    radial_.addEventListener('click', () => {
+      const cur = u.uMode.value
+      // If already in radial family, keep sub-type; otherwise default to Standard
+      if (cur !== 0 && cur !== 2 && cur !== 3) u.uMode.value = 0
+      syncMode()
+    })
 
     const linear_ = document.createElement('button')
     linear_.className = 'cs-pill'
     linear_.textContent = 'Linear'
     linear_.addEventListener('click', () => { u.uMode.value = 1; syncMode() })
 
-    const sweep_ = document.createElement('button')
-    sweep_.className = 'cs-pill'
-    sweep_.textContent = 'Sweep'
-    sweep_.addEventListener('click', () => { u.uMode.value = 2; syncMode() })
-
-    const hypnotic_ = document.createElement('button')
-    hypnotic_.className = 'cs-pill'
-    hypnotic_.textContent = 'Hypnotic'
-    hypnotic_.addEventListener('click', () => { u.uMode.value = 3; syncMode() })
+    const metaball_ = document.createElement('button')
+    metaball_.className = 'cs-pill'
+    metaball_.textContent = 'Metaball'
+    metaball_.addEventListener('click', () => { u.uMode.value = 4; syncMode() })
 
     pills.appendChild(radial_)
     pills.appendChild(linear_)
-    pills.appendChild(sweep_)
-    pills.appendChild(hypnotic_)
+    pills.appendChild(metaball_)
     modeRow.appendChild(modeLbl)
     modeRow.appendChild(pills)
     body.appendChild(modeRow)
+    body.appendChild(radialTypeRow)
+    body.appendChild(motionRow)
 
-    // Position pad + matcap light sphere
+    // Position pad
     const posPad = makePositionPad(u.uCenterX, u.uCenterY)
 
     const padRow = document.createElement('div')
     padRow.className = 'cs-pad-row'
-    padRow.appendChild(matcapSphere)
     padRow.appendChild(posPad)
 
-    const speedRow = makeSlider('speed', 0.05, 2, u.uSpeed.value, 0.01, v => { u.uSpeed.value = v })
+    const speedRow = makeSpeedBar('speed', 0.05, 2, u.uSpeed.value, 0.01, v => { u.uSpeed.value = v })
+    // Seed buttons sit before the speed bar
+    metaSeedBtn.style.display = 'none'
+    speedRow.insertBefore(metaSeedBtn, speedRow.firstChild)
+    speedRow.insertBefore(seedBtn, speedRow.firstChild)
     body.appendChild(speedRow)
     body.appendChild(padRow)
     body.appendChild(radialGroup)
     body.appendChild(linearGroup)
-    body.appendChild(sweepGroup)
-    body.appendChild(hypnoticGroup)
+    body.appendChild(metaballGroup)
 
     // Color mix mode: sRGB vs Oklab interpolation
     const mixRow = document.createElement('div')
@@ -1826,8 +1976,8 @@ function buildGradientLayerSub(label, u, layerKey) {
     mixRow.appendChild(mixPills)
     body.appendChild(mixRow)
 
-    // Compact color ramp
-    const rampWidget = makeCompactRamp(stopsFromUniforms(u), stops => applyRamp(stops, u), label, () => u.uOklab.value)
+    // 5-color palette
+    const rampWidget = makeColorPalette(_palettes[layerKey], u, layerKey, () => u.uOklab.value)
     body.appendChild(rampWidget)
     syncMix()
 
@@ -1888,6 +2038,8 @@ function buildGeometrySection(uniforms) {
       const burstGroup = document.createElement('div')
       burstGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
       burstGroup.appendChild(makeSlider('radial count', 1, 32, ub.uRaySpread.value, 1, v => { ub.uRaySpread.value = v }))
+      const burstPad = makePositionPad(ub.uBurstCenterX, ub.uBurstCenterY)
+      burstGroup.appendChild(burstPad)
 
       // Orbit-only controls (center position)
       const orbitGroup = document.createElement('div')
@@ -1946,24 +2098,26 @@ function buildGeometrySection(uniforms) {
         burst_.classList.toggle('active', m === 1)
         orbit_.classList.toggle('active', m === 2)
         fan_.classList.toggle('active', m === 3)
+        spiral_.classList.toggle('active', m === 4)
+        globe_.classList.toggle('active', m === 5)
         parallelGroup.style.display = m === 0 ? 'flex' : 'none'
         burstGroup.style.display    = m === 1 ? 'flex' : 'none'
         orbitGroup.style.display    = m === 2 ? 'flex' : 'none'
         fanGroup.style.display      = m === 3 ? 'flex' : 'none'
         spiralGroup.style.display   = m === 4 ? 'flex' : 'none'
-        spiral_.classList.toggle('active', m === 4)
+        globeGroup.style.display    = m === 5 ? 'flex' : 'none'
         // Mode-specific visibility
         const isFan    = m === 3
         const isBurst  = m === 1
         const isSpiral = m === 4
-        angleRow.style.display = (isFan || isBurst || isSpiral) ? 'none' : ''
+        const isGlobe  = m === 5
+        angleRow.style.display = (isFan || isBurst || isSpiral || isGlobe) ? 'none' : ''
         // Fan hides a subset of glass rows
         if (isFan) fanHiddenRows.forEach(r => { r.style.display = 'none' })
-        // Burst hides: distort, softness, blur, roughness, thickness, invertRow, non-uniform
+        // Burst hides: distort, softness, blur, roughness, thickness, invertRow
         if (isBurst) {
           distortRow.style.display = 'none'
           invertRow.style.display = 'none'
-          nonUniformRow.style.display = 'none'
           thicknessRow.style.display = 'none'
           softnessRow.style.display = 'none'
           blurRow.style.display = 'none'
@@ -1978,9 +2132,19 @@ function buildGeometrySection(uniforms) {
           roughnessRow.style.display = 'none'
           ub.uSoftness.value = 1.0
         }
-        // Non-uniform: only for parallel, fan, and spiral
-        if (!isBurst) {
-          nonUniformRow.style.display = (m === 0 || isFan || isSpiral) ? '' : 'none'
+        // Globe hides: distort, invertRow, speed, softness, thickness, blur,
+        // highlight, highlight spread, roughness, and the Glass tilt pad (globe has its own)
+        if (isGlobe) {
+          distortRow.style.display = 'none'
+          invertRow.style.display = 'none'
+          softnessRow.style.display = 'none'
+          speedRow.style.display = 'none'
+          thicknessRow.style.display = 'none'
+          blurRow.style.display = 'none'
+          highlightRow.style.display = 'none'
+          hlSpreadRow.style.display = 'none'
+          roughnessRow.style.display = 'none'
+          tiltPadRow.style.display = 'none'
         }
       }
 
@@ -1992,7 +2156,13 @@ function buildGeometrySection(uniforms) {
       const burst_ = document.createElement('button')
       burst_.className = 'cs-pill'
       burst_.textContent = 'Burst'
-      burst_.addEventListener('click', () => { ub.uBandsMode.value = 1; syncBandsMode() })
+      burst_.addEventListener('click', () => {
+        ub.uBandsMode.value = 1
+        ub.uBurstCenterX.value = 0.5
+        ub.uBurstCenterY.value = 0.5
+        burstPad._sync()
+        syncBandsMode()
+      })
 
       const orbit_ = document.createElement('button')
       orbit_.className = 'cs-pill'
@@ -2019,17 +2189,41 @@ function buildGeometrySection(uniforms) {
       spiral_.textContent = 'Spiral'
       spiral_.addEventListener('click', () => { ub.uBandsMode.value = 4; syncBandsMode() })
 
+      const globe_ = document.createElement('button')
+      globe_.className = 'cs-pill'
+      globe_.textContent = 'Globe'
+      globe_.addEventListener('click', () => {
+        ub.uBandsMode.value = 5
+        ub.uBurstCenterX.value = 0.5
+        ub.uBurstCenterY.value = 0.5
+        globePad._sync()
+        syncBandsMode()
+      })
+
       // Spiral-only controls (spacing + center)
       const spiralGroup = document.createElement('div')
       spiralGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
       spiralGroup.appendChild(makeSlider('spacing', 1, 20, ub.uSpacing.value, 0.1, v => { ub.uSpacing.value = v }))
       spiralGroup.appendChild(makePositionPad(ub.uBurstCenterX, ub.uBurstCenterY))
 
+      // Globe-only controls (radius, position pad, tilt pad, fresnel color, atmosphere)
+      const globeGroup = document.createElement('div')
+      globeGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+      globeGroup.appendChild(makeSlider('radius', 0.05, 0.5, ub.uGlobeRadius.value, 0.01, v => { ub.uGlobeRadius.value = v }))
+      globeGroup.appendChild(makeSlider('edge softness', 0, 1, ub.uGlobeEdge.value, 0.01, v => { ub.uGlobeEdge.value = v }))
+      const globePad = makePositionPad(ub.uBurstCenterX, ub.uBurstCenterY)
+      globeGroup.appendChild(globePad)
+      globeGroup.appendChild(makeTiltPad(ub.uTilt, ub.uTilt2, ub.uTiltZ))
+      globeGroup.appendChild(makeSingleColor('fresnel color', ub.uFresnelColor))
+      globeGroup.appendChild(makeSlider('atmosphere', 0, 1, ub.uAtmoGlow.value, 0.01, v => { ub.uAtmoGlow.value = v }))
+      globeGroup.appendChild(makeSingleColor('atmo color', ub.uAtmoColor))
+
       modePills.appendChild(parallel_)
       modePills.appendChild(burst_)
       modePills.appendChild(orbit_)
       modePills.appendChild(fan_)
       modePills.appendChild(spiral_)
+      modePills.appendChild(globe_)
       modeRow.appendChild(modeLbl)
       modeRow.appendChild(modePills)
       sub.appendChild(modeRow)
@@ -2038,6 +2232,7 @@ function buildGeometrySection(uniforms) {
       sub.appendChild(orbitGroup)
       sub.appendChild(fanGroup)
       sub.appendChild(spiralGroup)
+      sub.appendChild(globeGroup)
 
       // Invert pills: Normal | Invert | Both — shared by both modes
       const invertRow = document.createElement('div')
@@ -2064,32 +2259,11 @@ function buildGeometrySection(uniforms) {
       sub.appendChild(invertRow)
 
       // Speed, distortion, and Glass — shared by most modes
-      const speedRow   = makeSlider('speed', 0, 2, ub.uSpeed.value, 0.01, v => { ub.uSpeed.value = v })
+      const speedRow   = makeSpeedBar('speed', 0, 2, ub.uSpeed.value, 0.01, v => { ub.uSpeed.value = v })
       const distortRow = makeSlider('distort', 0, 1, ub.uDistort.value, 0.01, v => { ub.uDistort.value = v })
       sub.appendChild(speedRow)
       sub.appendChild(distortRow)
 
-      // Non-uniform toggle + seed button
-      const nonUniformRow = document.createElement('div')
-      nonUniformRow.className = 'cs-field-row'
-      nonUniformRow.style.cssText = 'display:flex;align-items:center;gap:6px;'
-      const nuLbl = document.createElement('span')
-      nuLbl.className = 'cs-field-label'
-      nuLbl.textContent = 'Non-uniform'
-      nonUniformRow.appendChild(nuLbl)
-      nonUniformRow.appendChild(makeToggle(ub.uBandRandom.value === 1, v => {
-        ub.uBandRandom.value = v ? 1 : 0
-        nuSeedBtn.style.display = v ? '' : 'none'
-      }))
-      const nuSeedBtn = document.createElement('button')
-      nuSeedBtn.className = 'cs-pill'
-      nuSeedBtn.textContent = 'seed'
-      nuSeedBtn.style.display = ub.uBandRandom.value === 1 ? '' : 'none'
-      nuSeedBtn.addEventListener('click', () => {
-        ub.uBandSeed.value = Math.floor(Math.random() * 100)
-      })
-      nonUniformRow.appendChild(nuSeedBtn)
-      sub.appendChild(nonUniformRow)
 
       // Angle slider — hidden in fan mode (origin grid controls angle)
       const angleRow = makeSlider('angle°', 0, 360, Math.round(ub.uAngle.value * 180 / Math.PI), 1, v => { ub.uAngle.value = v * Math.PI / 180 })
@@ -2197,6 +2371,57 @@ function buildRenderingSection(uniforms) {
     monoRow.appendChild(monoLbl)
     monoRow.appendChild(makeToggle(u.uMono.value, v => { u.uMono.value = v }))
     body.appendChild(monoRow)
+
+    // ── Grain effect ──────────────────────────────────────────────────────
+    const grainRow = document.createElement('div')
+    grainRow.className = 'cs-field-row'
+    const grainLbl = document.createElement('span')
+    grainLbl.className = 'cs-field-label'
+    grainLbl.textContent = 'Grain'
+    const grainPills = document.createElement('div')
+    grainPills.className = 'cs-pills'
+
+    const grainOff = document.createElement('button')
+    grainOff.className = 'cs-pill'
+    grainOff.textContent = 'Off'
+    const grainFilm = document.createElement('button')
+    grainFilm.className = 'cs-pill'
+    grainFilm.textContent = 'Film'
+    const grainScan = document.createElement('button')
+    grainScan.className = 'cs-pill'
+    grainScan.textContent = 'Scan'
+
+    const grainPanel = document.createElement('div')
+    grainPanel.style.cssText = 'display:none;flex-direction:column;gap:8px;'
+
+    const grainKnobs = document.createElement('div')
+    grainKnobs.className = 'cs-knob-pair'
+    grainKnobs.appendChild(makeKnob('amount', 0, 1, u.uGrainAmt.value, 0.01,
+      v => { u.uGrainAmt.value = v }))
+    grainKnobs.appendChild(makeKnob('scale', 0, 1, u.uGrainScale.value, 0.01,
+      v => { u.uGrainScale.value = v }))
+    grainPanel.appendChild(grainKnobs)
+
+    function syncGrain() {
+      const g = u.uGrainType.value
+      grainOff.classList.toggle('active', g === 0)
+      grainFilm.classList.toggle('active', g === 1)
+      grainScan.classList.toggle('active', g === 2)
+      grainPanel.style.display = g > 0 ? 'flex' : 'none'
+    }
+
+    grainOff.addEventListener('click', () => { u.uGrainType.value = 0; syncGrain() })
+    grainFilm.addEventListener('click', () => { u.uGrainType.value = 1; syncGrain() })
+    grainScan.addEventListener('click', () => { u.uGrainType.value = 2; syncGrain() })
+
+    grainPills.appendChild(grainOff)
+    grainPills.appendChild(grainFilm)
+    grainPills.appendChild(grainScan)
+    grainRow.appendChild(grainLbl)
+    grainRow.appendChild(grainPills)
+    body.appendChild(grainRow)
+    body.appendChild(grainPanel)
+    syncGrain()
   })
 }
 
@@ -2341,11 +2566,13 @@ function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot, s
         durRow.style.opacity = '0.35'; durRow.style.pointerEvents = 'none'
         fpsPills.style.pointerEvents = 'none'
         resPills.style.pointerEvents = 'none'
+        const renderOverlay = createRenderOverlay()
         await exportVideo({
           targetDuration: secs, fps: selectedFps, resolution: selectedVideoRes,
           onProgress: p => {
             progressFill.style.width = `${Math.round(p * 100)}%`
             progressLbl.textContent = `recording… ${Math.round(p * 100)}%`
+            renderOverlay.setProgress(p)
           },
           onDone: () => {
             isRecording = false
@@ -2353,6 +2580,7 @@ function buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot, s
             durRow.style.opacity = '1'; durRow.style.pointerEvents = 'auto'
             fpsPills.style.pointerEvents = 'auto'
             resPills.style.pointerEvents = 'auto'
+            renderOverlay.showDone()
           },
         })
       })

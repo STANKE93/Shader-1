@@ -18,19 +18,19 @@ function hexToRGB(hex) {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
 }
 
-function makeRampColors(stops) {
-  const arr = new Float32Array(MAX_STOPS * 3)
-  stops.forEach(({ color }, i) => {
-    const [r, g, b] = hexToRGB(color)
-    arr[i * 3] = r; arr[i * 3 + 1] = g; arr[i * 3 + 2] = b
+// Build shader ramp arrays from palette: main[0], enabled extras, main[1] — evenly spaced
+function buildRampFromPalette(palette) {
+  const activeExtras = palette.extras.filter((_, i) => palette.enabled[i])
+  const all = [palette.main[0], ...activeExtras, palette.main[1]]
+  const n = all.length
+  const colArr = new Float32Array(MAX_STOPS * 3)
+  const posArr = new Float32Array(MAX_STOPS)
+  all.forEach((hex, i) => {
+    const [r, g, b] = hexToRGB(hex)
+    colArr[i * 3] = r; colArr[i * 3 + 1] = g; colArr[i * 3 + 2] = b
+    posArr[i] = n > 1 ? i / (n - 1) : 0
   })
-  return arr
-}
-
-function makeRampPositions(stops) {
-  const arr = new Float32Array(MAX_STOPS)
-  stops.forEach(({ pos }, i) => { arr[i] = pos })
-  return arr
+  return { colors: colArr, positions: posArr, count: n }
 }
 
 export function createScene(canvas) {
@@ -133,12 +133,19 @@ export function createScene(canvas) {
   const resolution = new THREE.Vector2(cw(), ch())
 
   // --- Layer 1 ---
+  // 2 main colors (always on) + 4 extras (toggleable)
+  const palette1 = {
+    main:    ['#1a0533', '#fffbe6'],
+    extras:  ['#6b1d7a', '#ff6ec7', '#ffb86c', '#ff4466'],
+    enabled: [true, true, true, true],   // toggle state for extras only
+  }
+  const ramp1 = buildRampFromPalette(palette1)
   const uniforms1 = {
     uTime:          { value: 0 },
     uLayerEnabled:  { value: true },
-    uRampColors:    { value: makeRampColors([{ color: '#1a0533' }, { color: '#ff6ec7' }]) },
-    uRampPositions: { value: makeRampPositions([{ pos: 0.0 }, { pos: 1.0 }]) },
-    uRampCount:     { value: 2 },
+    uRampColors:    { value: ramp1.colors },
+    uRampPositions: { value: ramp1.positions },
+    uRampCount:     { value: ramp1.count },
     uSpeed:         { value: 0.4 },
     uOffset:        { value: 0.0 },
     uMode:             { value: 1 },               // 0=radial, 1=linear, 2=sweep
@@ -159,19 +166,37 @@ export function createScene(canvas) {
     uLinearMotion:     { value: 0 },               // 0=slide, 1=cloth, 2=liquid
     uClothScale:       { value: 1.0 },             // fold size multiplier
     uClothDetail:      { value: 0.7 },             // wave complexity (0-1)
+    uClothSeed:        { value: 0.0 },             // cloth pattern seed
     uLinearCount:      { value: 1.0 },             // slide band count multiplier
+    uWaveAmp:          { value: 0.0 },             // wave distortion amplitude (0 = off)
+    uWaveFreq:         { value: 3.0 },             // wave distortion frequency
+    uDistortAmt:       { value: 0.0 },             // 2D cross-warp distortion
+    uMetaBallCount:    { value: 4.0 },             // metaball center count (2-15)
+    uMetaElasticity:   { value: 1.0 },             // metaball falloff sharpness
+    uMetaSeed:         { value: 0.0 },             // metaball orbit phase seed
+    uMetaSize:         { value: 0.12 },            // blob radius
+    uMetaSoftness:     { value: 0.3 },             // edge softness (0=hard, 1=glow)
+    uMetaSpread:       { value: 1.0 },             // orbit spread multiplier
+    uMetaInvert:       { value: 0.0 },             // invert field
+    uMetaChaos:        { value: 0.0 },             // motion chaos
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: gradientLayer1, uniforms: uniforms1,
   })))
 
   // --- Layer 2 ---
+  const palette2 = {
+    main:    ['#7b2fff', '#ffffff'],
+    extras:  ['#00eaff', '#1a0533', '#ff6ec7', '#ffb86c'],
+    enabled: [true, true, true, true],
+  }
+  const ramp2 = buildRampFromPalette(palette2)
   const uniforms2 = {
     uTime:          { value: 0 },
     uLayerEnabled:  { value: false },
-    uRampColors:    { value: makeRampColors([{ color: '#7b2fff' }, { color: '#00eaff' }]) },
-    uRampPositions: { value: makeRampPositions([{ pos: 0.0 }, { pos: 1.0 }]) },
-    uRampCount:     { value: 2 },
+    uRampColors:    { value: ramp2.colors },
+    uRampPositions: { value: ramp2.positions },
+    uRampCount:     { value: ramp2.count },
     uSpeed:         { value: 0.6 },
     uOffset:        { value: 1.5 },
     uMode:             { value: 0 },     // 0=radial, 1=linear, 2=sweep
@@ -192,7 +217,19 @@ export function createScene(canvas) {
     uLinearMotion:     { value: 0 },    // 0=slide, 1=cloth, 2=liquid
     uClothScale:       { value: 1.0 },  // fold size multiplier
     uClothDetail:      { value: 0.7 },  // wave complexity (0-1)
+    uClothSeed:        { value: 0.0 },  // cloth pattern seed
     uLinearCount:      { value: 1.0 },  // slide band count multiplier
+    uWaveAmp:          { value: 0.0 },  // wave distortion amplitude (0 = off)
+    uWaveFreq:         { value: 3.0 },  // wave distortion frequency
+    uDistortAmt:       { value: 0.0 },  // 2D cross-warp distortion
+    uMetaBallCount:    { value: 4.0 },  // metaball center count (2-15)
+    uMetaElasticity:   { value: 1.0 },  // metaball falloff sharpness
+    uMetaSeed:         { value: 0.0 },  // metaball orbit phase seed
+    uMetaSize:         { value: 0.12 },  // blob radius
+    uMetaSoftness:     { value: 0.3 },  // edge softness
+    uMetaSpread:       { value: 1.0 },  // orbit spread multiplier
+    uMetaInvert:       { value: 0.0 },  // invert field
+    uMetaChaos:        { value: 0.0 },  // motion chaos
   }
   bgScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: gradientLayer2, uniforms: uniforms2,
@@ -235,6 +272,12 @@ export function createScene(canvas) {
     // Prism mode
     uPrismSeed:       { value: 0.0 },
     uPrismDepth:      { value: 0.6 },
+    // Globe mode
+    uGlobeRadius:     { value: 0.35 },
+    uGlobeEdge:       { value: 0.3 },
+    uFresnelColor:    { value: new THREE.Vector3(0.6, 0.8, 1.0) },
+    uAtmoGlow:        { value: 0.5 },
+    uAtmoColor:       { value: new THREE.Vector3(0.4, 0.7, 1.0) },
   }
   bandsScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: diagonalBands, uniforms: uniformsBands,
@@ -250,6 +293,9 @@ export function createScene(canvas) {
     uShadow:       { value: 0.06 },
     uShape:        { value: 0 },
     uMono:         { value: false },
+    uGrainType:    { value: 0 },      // 0=off, 1=film, 2=stipple, 3=scan, 4=ascii
+    uGrainAmt:     { value: 0.5 },    // grain intensity
+    uGrainScale:   { value: 0.5 },    // grain size/density
   }
   halftoneScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
     vertexShader: baseVertex, fragmentShader: halftone, uniforms: uniformsHalftone,
@@ -339,6 +385,8 @@ export function createScene(canvas) {
     start: () => { rafId = requestAnimationFrame(tick) },
 
     uniforms: { layer1: uniforms1, layer2: uniforms2, bands: uniformsBands, halftone: uniformsHalftone, lens: uniformsLens },
+    palettes: { layer1: palette1, layer2: palette2 },
+    buildRampFromPalette,
 
     getLoopDuration: (targetSecs) => computeLoopDuration(activeSpeeds(), targetSecs),
 

@@ -25,7 +25,19 @@ uniform bool  uOklab;           // true = interpolate ramp in Oklab space
 uniform int   uLinearMotion;    // 0 = slide (traveling wave), 1 = cloth (2D fabric)
 uniform float uClothScale;     // fold size: <1 large billows, >1 tight crumples
 uniform float uClothDetail;    // wave complexity: 0 = single billow, 1 = full 4-layer
+uniform float uClothSeed;     // phase offset seed for cloth pattern variation
 uniform float uLinearCount;   // slide band count multiplier (default 1)
+uniform float uWaveAmp;      // perpendicular wave distortion amplitude (0 = off)
+uniform float uWaveFreq;     // perpendicular wave distortion frequency
+uniform float uDistortAmt;   // 2D cross-warp distortion strength (0 = off)
+uniform float uMetaBallCount;   // number of metaball centers (2-15)
+uniform float uMetaElasticity;  // falloff sharpness (0.3-3.0, low = merged, high = sharp)
+uniform float uMetaSeed;        // randomizes metaball orbit phases
+uniform float uMetaSize;        // blob radius (0.03-0.4)
+uniform float uMetaSoftness;    // edge softness (0 = hard, 1 = diffuse glow)
+uniform float uMetaSpread;      // orbit spread multiplier (0.2-2.0)
+uniform float uMetaInvert;      // invert field mapping (0 or 1)
+uniform float uMetaChaos;       // secondary wobble on orbits (0-1)
 
 varying vec2 vUv;
 
@@ -137,17 +149,43 @@ vec3 evalRamp(float t) {
   for (int i = 1; i < MAX_STOPS; i++) {
     if (i >= uRampCount) break;
     float prev = uRampPositions[i - 1];
-    float span = uRampPositions[i] - prev;
-    float f = span > 0.0 ? clamp((t - prev) / span, 0.0, 1.0) : 1.0;
-    if (uOklab) {
-      vec3 labA = srgbToOklab(uRampColors[i - 1]);
-      vec3 labB = srgbToOklab(uRampColors[i]);
-      col = oklabToSrgb(mix(labA, labB, f));
-    } else {
-      col = mix(uRampColors[i - 1], uRampColors[i], f);
+    // Only update col when t is past the left edge of this segment;
+    // clamp keeps f in [0,1] so the correct segment interpolates while
+    // earlier segments saturate at f=1 (giving their right-hand color).
+    if (t > prev) {
+      float span = uRampPositions[i] - prev;
+      float f = span > 0.0 ? clamp((t - prev) / span, 0.0, 1.0) : 1.0;
+      if (uOklab) {
+        vec3 labA = srgbToOklab(uRampColors[i - 1]);
+        vec3 labB = srgbToOklab(uRampColors[i]);
+        col = oklabToSrgb(mix(labA, labB, f));
+      } else {
+        col = mix(uRampColors[i - 1], uRampColors[i], f);
+      }
     }
   }
   return col;
+}
+
+// ─── Metaball position from index, time, seed, spread, chaos ────────────
+vec2 metaBallPos(int i, float t, float seed, float spread, float chaos) {
+  float fi = float(i);
+  float s = seed * 17.31;
+  float a = fi * 2.399 + 0.5 + s;
+  float sx = (0.28 + fi * 0.04) * spread;
+  float sy = (0.24 + fi * 0.035) * spread;
+  float fx = 0.3 + fi * 0.11;
+  float fy = 0.25 + fi * 0.087;
+  vec2 pos = vec2(
+    0.5 + sx * sin(t * fx + a),
+    0.5 + sy * cos(t * fy + a * 1.7 + s * 0.73)
+  );
+  // Chaos: secondary high-freq wobble
+  if (chaos > 0.0) {
+    pos.x += sin(t * 1.7 + fi * 3.91 + s) * 0.08 * chaos;
+    pos.y += cos(t * 2.1 + fi * 4.73 + s) * 0.08 * chaos;
+  }
+  return pos;
 }
 
 void main() {
@@ -167,11 +205,25 @@ void main() {
     // Analytical gradient for lighting (filled by either motion path)
     vec2 grad = vec2(0.0);
 
+    // Distortion: 2D cross-warp — warps both axes with offset sine waves
+    vec2 uv = vUv;
+    if (uDistortAmt > 0.0) {
+      float d = uDistortAmt * 0.12;
+      uv.x += sin(vUv.y * 5.7 + t * 0.4) * d;
+      uv.y += sin(vUv.x * 4.3 - t * 0.3) * d;
+      uv.x += cos(vUv.y * 9.1 - t * 0.2) * d * 0.4;
+    }
+    // Wave distortion: displace UV along drift axis using a sine across the perp axis
+    if (uWaveAmp > 0.0) {
+      float perpCoord = dot(uv, perp);
+      float waveDisp = sin(perpCoord * uWaveFreq * 6.2832 + t * 0.5) * uWaveAmp * 0.15;
+      uv += dir * waveDisp;
+    }
+
     if (uLinearMotion == 1) {
       // ─── Cloth: 2D fabric surface ─────────────────────────────────────
       // 4 wave layers at irrational angle ratios. uClothScale controls
       // fold size, uClothDetail fades secondary layers in/out.
-      vec2 uv = vUv;
       float sc = uClothScale;
       float dt = uClothDetail;
 
@@ -179,28 +231,29 @@ void main() {
       float a1 = uDriftAngle;
       vec2 d1 = vec2(cos(a1), sin(a1));
       float f1 = 3.0 * sc;
-      float p1 = dot(uv, d1) * f1 + t * 0.7;
+      float seed = uClothSeed * 17.31;
+      float p1 = dot(uv, d1) * f1 + t * 0.7 + seed;
       float w1 = sin(p1) * 0.35;
 
       // Wave 2: counter-wave at golden angle offset
       float a2 = a1 + 2.399;
       vec2 d2 = vec2(cos(a2), sin(a2));
       float f2 = 4.3 * sc;
-      float p2 = dot(uv, d2) * f2 - t * 0.5;
+      float p2 = dot(uv, d2) * f2 - t * 0.5 + seed * 1.37;
       float w2 = sin(p2) * 0.25 * dt;
 
       // Wave 3: medium ripple
       float a3 = a1 + 1.047;
       vec2 d3 = vec2(cos(a3), sin(a3));
       float f3 = 6.1 * sc;
-      float p3 = dot(uv, d3) * f3 + t * 0.35;
+      float p3 = dot(uv, d3) * f3 + t * 0.35 + seed * 0.83;
       float w3 = sin(p3) * 0.18 * dt;
 
       // Wave 4: slow breathing
       float a4 = a1 + 3.83;
       vec2 d4 = vec2(cos(a4), sin(a4));
       float f4 = 1.4 * sc;
-      float p4 = dot(uv, d4) * f4 - t * 0.2;
+      float p4 = dot(uv, d4) * f4 - t * 0.2 + seed * 2.11;
       float w4 = sin(p4) * 0.22 * smoothstep(0.0, 0.5, dt);
 
       // Combine into height field, remap to [0,1]
@@ -217,7 +270,7 @@ void main() {
     } else if (uLinearMotion == 2) {
       // ─── Liquid: finger-in-water nested domain warping ──────────────
       float sc = uClothScale * 3.0;
-      vec2 p = vUv * sc;
+      vec2 p = uv * sc;
 
       // Warp layer 1: large slow swirls (the "finger push")
       vec2 q = vec2(
@@ -244,8 +297,8 @@ void main() {
 
     } else {
       // ─── Slide: traveling wave along drift axis ───────────────────────
-      float proj     = dot(vUv, dir);
-      float perpProj = dot(vUv, perp);
+      float proj     = dot(uv, dir);
+      float perpProj = dot(uv, perp);
 
       // Fabric deformation when relief is on
       float warpA = 2.5;
@@ -343,13 +396,47 @@ void main() {
     float centerFade = smoothstep(0.0, 0.04, dist);
     wave = mix(0.5, wave, centerFade);
 
+  } else if (uMode == 4) {
+    // ─── Metaball: organic blobby field ─────────────────────────────────────
+    float field = 0.0;
+    float radius = uMetaSize;
+    float exponent = 2.0 * uMetaElasticity;
+    for (int i = 0; i < 15; i++) {
+      if (float(i) >= uMetaBallCount) break;
+      vec2 center = metaBallPos(i, t, uMetaSeed, uMetaSpread, uMetaChaos);
+      float d = length(vUv - center);
+      field += pow(radius / max(d, 0.001), exponent);
+    }
+    // Softness controls smoothstep width: 0 = hard edge, 1 = diffuse glow
+    float edge0 = mix(0.8, 0.1, uMetaSoftness);
+    float edge1 = mix(1.2, 4.0, uMetaSoftness);
+    wave = smoothstep(edge0, edge1, field);
+    // Invert
+    if (uMetaInvert > 0.5) wave = 1.0 - wave;
+
   } else {
     // ─── Radial: topographic light surface ──────────────────────────────────
     //
     // Central force with non-uniform contour compression, subtle asymmetry,
     // and atmospheric falloff. Reads as a lit terrain / water-drop impact.
 
-    vec2  delta  = vUv - vec2(uCenterX, uCenterY);
+    // Distortion: 2D cross-warp on UV before radial computation
+    vec2 ruv = vUv;
+    if (uDistortAmt > 0.0) {
+      float d = uDistortAmt * 0.12;
+      ruv.x += sin(vUv.y * 5.7 + t * 0.4) * d;
+      ruv.y += sin(vUv.x * 4.3 - t * 0.3) * d;
+      ruv.x += cos(vUv.y * 9.1 - t * 0.2) * d * 0.4;
+    }
+    // Wave distortion: radial ripple on UV
+    if (uWaveAmp > 0.0) {
+      vec2 wDelta = ruv - vec2(uCenterX, uCenterY);
+      float wDist = length(wDelta);
+      float waveDisp = sin(wDist * uWaveFreq * 6.2832 + t * 0.5) * uWaveAmp * 0.15;
+      ruv += (wDist > 0.001 ? wDelta / wDist : vec2(0.0)) * waveDisp;
+    }
+
+    vec2  delta  = ruv - vec2(uCenterX, uCenterY);
     float dist   = length(delta);
     vec2  radDir = dist > 0.001 ? delta / dist : vec2(1.0, 0.0);
 

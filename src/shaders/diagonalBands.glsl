@@ -24,7 +24,7 @@ uniform float     uRoughness;     // [0..1]: surface roughness — 0 mirror, 1 m
 uniform int       uBandRandom;   // 0 = uniform spacing, 1 = non-uniform
 uniform float     uBandSeed;     // randomizes non-uniform band layout
 
-// Mode: 0 = parallel, 1 = burst, 2 = orbit, 3 = fan, 4 = prism
+// Mode: 0 = parallel, 1 = burst, 2 = orbit, 3 = fan, 4 = spiral, 5 = globe
 uniform int       uBandsMode;
 uniform float     uBurstCenterX;  // burst/orbit origin X in UV space [0..1]
 uniform float     uBurstCenterY;  // burst/orbit origin Y in UV space [0..1]
@@ -35,6 +35,13 @@ uniform float     uRayIntensity;  // additive brightness of the ray interior
 // Prism mode
 uniform float     uPrismSeed;     // randomizes facet layout
 uniform float     uPrismDepth;    // facet tilt intensity (0 = flat, 1 = steep)
+
+// Globe mode
+uniform float     uGlobeRadius;   // radius in UV units (0.05..0.5)
+uniform vec3      uFresnelColor;  // tint color for Fresnel rim light
+uniform float     uAtmoGlow;      // atmospheric glow intensity (0..1)
+uniform vec3      uAtmoColor;     // atmospheric glow color
+uniform float     uGlobeEdge;     // edge softness (0 = sharp, 1 = very soft)
 
 varying vec2 vUv;
 
@@ -333,6 +340,109 @@ void main() {
     vec3  col = compositeGlass(N, thickMask, centerFade);
 
     gl_FragColor = vec4(col, 1.0);
+
+  } else if (uBandsMode == 5) {
+    // ─── GLOBE MODE ───────────────────────────────────────────────────────
+    //
+    // Glass sphere with hemisphere normals, volumetric depth cues,
+    // and radial edge blur to dissolve aliasing at the boundary.
+    // No hard if/else at the circle edge — everything is a soft field.
+
+    vec2  center = vec2(uBurstCenterX, uBurstCenterY);
+    vec2  delta  = vUv - center;
+    float dist   = length(delta);
+    float r      = max(uGlobeRadius, 0.01);
+    float nd     = dist / r;
+
+    vec3 bg = texture2D(uBackground, vUv).rgb;
+
+    // Edge softness zone: uGlobeEdge controls how far inward the blend extends
+    // 0 = tight (2% of radius), 1 = very soft (25% of radius)
+    float softWidth = mix(0.02, 0.25, uGlobeEdge);
+    float edgeFade = smoothstep(1.0, 1.0 - softWidth, nd);
+
+    // ── Atmospheric glow (both sides of the edge) ──
+    // Extends outward as a halo and inward as rim glow — bridges the boundary
+    float glowDist = max(nd - 1.0, 0.0) / max(r, 0.01);
+    float outerGlow = exp(-glowDist * 3.0) * uAtmoGlow * (1.0 - edgeFade);
+    vec3 atmo = uAtmoColor * outerGlow;
+
+    // Contact shadow (outside only)
+    float shadowDist = max(nd - 1.0, 0.0) * r * 800.0;
+    float shadow = 1.0 - 0.15 * exp(-shadowDist * 0.8) * (1.0 - edgeFade);
+
+    if (edgeFade < 0.001) {
+      // Fully outside — just atmosphere + shadow, skip glass math
+      gl_FragColor = vec4(bg * shadow + atmo, 1.0);
+    } else {
+      // ── Radial edge blur ──
+      // Near the rim, sample the globe at multiple radial offsets and average.
+      // This dissolves the aliased circle boundary into a smooth optical falloff.
+      // Blur intensity ramps up only in the edge zone for efficiency.
+      float edgeProximity = smoothstep(1.0 - softWidth * 1.5, 1.0, nd);
+      float blurSpread = edgeProximity * uGlobeEdge * r * 0.06;
+
+      // 8-tap radial ring + center = 9 samples (only when blurSpread > 0)
+      vec3 col = vec3(0.0);
+      float totalWeight = 0.0;
+
+      // Tap offsets: center + 8 directions at 45° increments
+      for (int i = 0; i < 9; i++) {
+        vec2 offset = vec2(0.0);
+        if (i > 0) {
+          float angle = float(i - 1) * 0.7854; // pi/4
+          offset = vec2(cos(angle), sin(angle)) * blurSpread;
+        }
+        vec2 sampleDelta = delta + offset;
+        float sampleDist = length(sampleDelta);
+        float sampleNd = sampleDist / r;
+
+        // Weight: center tap strongest, outer taps fall off
+        float w = (i == 0) ? 2.0 : 1.0;
+
+        if (sampleNd < 1.0) {
+          // This tap is inside the globe — compute glass
+          vec2  sNxy = sampleDelta / r;
+          float sNz  = sqrt(1.0 - sampleNd * sampleNd);
+
+          float sTiltX = uTilt  * sNxy.x * 2.0;
+          float sTiltY = uTilt2 * sNxy.y * 2.0;
+          float sTiltZ = sNz + uTiltZ * sampleNd;
+          vec3 sN = normalize(vec3(sNxy.x + sTiltX, sNxy.y + sTiltY, max(sTiltZ, 0.05)));
+
+          float sThick = mix(1.0, sNz, uThickness);
+          float sFade  = smoothstep(1.0, 1.0 - softWidth, sampleNd);
+
+          vec3 sCol = compositeGlass(sN, sThick * sFade, sFade);
+
+          // Caustic
+          sCol *= 1.0 + smoothstep(0.35, 0.0, sampleNd) * (uIOR - 1.0) * 0.8;
+
+          // Secondary specular
+          vec3 sH2 = normalize(vec3(-0.3, -0.5, 2.0));
+          sCol += vec3(0.85, 0.9, 1.0) * pow(max(dot(sN, sH2), 0.0), 128.0)
+                  * uBevelIntensity * 0.3 * sFade;
+
+          // Fresnel rim
+          float sFresnel = pow(1.0 - sNz, 5.0);
+          sCol += uFresnelColor * sFresnel * uFresnel * sFade;
+
+          // Inner atmosphere
+          sCol += uAtmoColor * pow(1.0 - sNz, 3.0) * uAtmoGlow * 0.4 * sFade;
+
+          col += sCol * w;
+        } else {
+          // This tap is outside — sample background (this naturally blends the edge)
+          vec2 tapUv = vUv + offset;
+          col += texture2D(uBackground, tapUv).rgb * w;
+        }
+        totalWeight += w;
+      }
+      col /= totalWeight;
+
+      // Final blend with background
+      gl_FragColor = vec4(mix(bg * shadow + atmo, col, edgeFade), 1.0);
+    }
 
   } else {
     gl_FragColor = texture2D(uBackground, vUv);
