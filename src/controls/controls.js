@@ -14,76 +14,103 @@ function injectStyles() {
   const s = document.createElement('style')
   s.id = 'cs-styles'
   s.textContent = `
+    .cs-panel-wrap {
+      position: fixed; top: 12px; right: 12px; z-index: 100;
+      width: 317px;
+      max-height: calc(100vh - 24px);
+      border-radius: 16px;
+      pointer-events: none;
+    }
+    .cs-panel-wrap::before, .cs-panel-wrap::after {
+      content: ''; position: absolute; left: 0; right: 0; height: 32px;
+      z-index: 2; pointer-events: none; border-radius: 16px;
+      opacity: 0; transition: opacity 0.25s ease;
+    }
+    .cs-panel-wrap::before {
+      top: 0;
+      background: linear-gradient(to bottom, rgba(12, 13, 18, 0.95) 0%, rgba(12, 13, 18, 0.6) 40%, transparent 100%);
+    }
+    .cs-panel-wrap::after {
+      bottom: 0;
+      background: linear-gradient(to top, rgba(12, 13, 18, 0.95) 0%, rgba(12, 13, 18, 0.6) 40%, transparent 100%);
+    }
+    .cs-panel-wrap.fade-top::before { opacity: 1; }
+    .cs-panel-wrap.fade-bottom::after { opacity: 1; }
     .cs-panel {
-      position: fixed; top: 0; right: 0; z-index: 100;
-      width: 326px;
-      background: rgba(12, 13, 18, 0.95);
-      backdrop-filter: blur(20px);
-      border-left: 1px solid rgba(255, 255, 255, 0.06);
-      border-radius: 0;
+      width: 100%;
+      background: rgba(12, 13, 18, 0.92);
+      backdrop-filter: blur(32px) saturate(1.2);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 16px;
       color: #fff;
-      font: 12px/1.5 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      max-height: 100vh;
+      font: 11px/1.45 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      max-height: calc(100vh - 24px);
       overflow-y: auto;
       overflow-x: hidden;
-      box-shadow: 0 0 40px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.45), 0 0 1px rgba(255,255,255,0.06);
+      pointer-events: auto;
     }
-    .cs-panel::-webkit-scrollbar { width: 4px; }
+    .cs-panel::-webkit-scrollbar { width: 3px; }
     .cs-panel::-webkit-scrollbar-track { background: transparent; }
-    .cs-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 3px; }
+    .cs-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 3px; }
 
     /* Header */
     .cs-header {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 13px 16px 11px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 10px 12px 9px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
     .cs-title {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.18em;
-      color: rgba(255, 255, 255, 0.92);
+      font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+      color: rgba(255, 255, 255, 0.88);
       text-transform: uppercase;
     }
-    .cs-pause-btn {
-      background: none; border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px; color: rgba(255, 255, 255, 0.50); font-size: 12px;
-      cursor: pointer; padding: 3px 10px; line-height: 1.5;
-      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    .cs-header-btns { display: flex; gap: 5px; }
+    .cs-header-btn {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07);
+      color: rgba(255, 255, 255, 0.40); font-size: 12px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
       font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      line-height: 1; padding: 0;
     }
-    .cs-pause-btn:hover { border-color: rgba(91, 156, 245, 0.35); background: rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.92); }
+    .cs-header-btn:hover { border-color: rgba(91, 156, 245, 0.35); background: rgba(255, 255, 255, 0.07); color: rgba(255, 255, 255, 0.80); }
 
     /* Collapsible sections */
-    .cs-section { border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+    .cs-section { border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
     .cs-section:last-child { border-bottom: none; }
     .cs-section-hdr {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 16px; cursor: pointer; user-select: none;
-      transition: background 0.12s;
+      padding: 8px 12px; cursor: pointer; user-select: none;
+      transition: background 0.15s;
     }
-    .cs-section-hdr:hover { background: rgba(255, 255, 255, 0.03); }
+    .cs-section-hdr:hover { background: rgba(255, 255, 255, 0.02); }
     .cs-section-label {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
-      color: rgba(255, 255, 255, 0.50); text-transform: uppercase;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+      color: rgba(255, 255, 255, 0.45); text-transform: uppercase;
     }
-    .cs-chevron { font-size: 9px; color: rgba(255, 255, 255, 0.30); transition: transform 0.18s; }
+    .cs-chevron { font-size: 8px; color: rgba(255, 255, 255, 0.25); transition: transform 0.2s ease; }
     .cs-chevron.open { transform: rotate(180deg); }
-    .cs-section-body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 0; }
+    .cs-section-body { padding: 0 12px 10px; display: flex; flex-direction: column; gap: 0; }
     .cs-section-body.hidden { display: none; }
 
-    /* Subsections */
+    /* Subsections — flat inline groups, no card boxing */
     .cs-sub {
-      margin-top: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px; overflow: hidden;
-      background: rgba(255, 255, 255, 0.03);
+      margin-top: 6px;
+      border: none; border-radius: 0; overflow: visible;
+      background: none;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      padding-top: 2px;
     }
+    .cs-sub:first-child { border-top: none; margin-top: 0; padding-top: 0; }
     .cs-sub-hdr {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 7px 11px;
-      background: rgba(255, 255, 255, 0.02);
+      padding: 4px 0;
+      background: none;
     }
-    .cs-sub-label { font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.50); letter-spacing: 0.06em; }
-    .cs-sub-body { padding: 10px 11px; display: flex; flex-direction: column; gap: 8px; }
+    .cs-sub-label { font-size: 10px; font-weight: 600; color: rgba(255, 255, 255, 0.45); letter-spacing: 0.05em; }
+    .cs-sub-body { padding: 4px 0 2px; display: flex; flex-direction: column; gap: 6px; }
 
     /* Toggle switch */
     .cs-toggle { position: relative; width: 28px; height: 16px; flex-shrink: 0; cursor: pointer; }
@@ -91,74 +118,78 @@ function injectStyles() {
     .cs-toggle-track {
       position: absolute; inset: 0; border-radius: 8px;
       background: rgba(255,255,255,0.08);
-      transition: background 0.18s;
+      transition: background 0.2s ease;
     }
-    .cs-toggle input:checked ~ .cs-toggle-track { background: rgba(91, 156, 245, 0.60); }
+    .cs-toggle input:checked ~ .cs-toggle-track {
+      background: rgba(91, 156, 245, 0.55);
+      box-shadow: 0 0 8px rgba(91, 156, 245, 0.15);
+    }
     .cs-toggle-thumb {
       position: absolute; top: 2px; left: 2px;
       width: 12px; height: 12px; border-radius: 50%;
-      background: rgba(255,255,255,0.9); pointer-events: none;
-      transition: transform 0.18s;
+      background: rgba(255,255,255,0.90); pointer-events: none;
+      transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
     .cs-toggle input:checked ~ .cs-toggle-thumb { transform: translateX(12px); }
 
     /* Slider row */
     .cs-slider-row {
       display: grid;
-      grid-template-columns: 86px 1fr 38px;
-      align-items: center; gap: 7px;
+      grid-template-columns: 70px 1fr 32px;
+      align-items: center; gap: 6px;
     }
-    .cs-slider-label { font-size: 11px; font-weight: 400; color: rgba(255,255,255,0.50); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .cs-slider-val { font-size: 11px; color: rgba(255,255,255,0.30); text-align: right; font-variant-numeric: tabular-nums; }
+    .cs-slider-label { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.42); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cs-slider-val { font-size: 10px; color: rgba(255,255,255,0.28); text-align: right; font-variant-numeric: tabular-nums; }
     input[type=range].cs-range {
       -webkit-appearance: none; appearance: none;
       width: 100%; height: 2px;
-      background: rgba(255,255,255,0.08); border-radius: 1px;
+      background: rgba(255,255,255,0.08); border-radius: 2px;
       outline: none; cursor: pointer;
     }
     input[type=range].cs-range::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 10px; height: 10px; border-radius: 50%;
       background: #5b9cf5; border: none;
-      cursor: pointer; box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
+      cursor: pointer; box-shadow: 0 0 6px rgba(91, 156, 245, 0.25), 0 1px 2px rgba(0,0,0,0.25);
     }
     input[type=range].cs-range::-moz-range-thumb {
       width: 10px; height: 10px; border-radius: 50%;
       background: #5b9cf5; border: none;
-      cursor: pointer; box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
+      cursor: pointer; box-shadow: 0 0 6px rgba(91, 156, 245, 0.25), 0 1px 2px rgba(0,0,0,0.25);
     }
 
-    /* Speed bar — segmented parallelogram meter */
+    /* Speed bar — segmented meter */
     .cs-speed-row {
       display: flex;
-      align-items: center; gap: 5px;
+      align-items: center; gap: 4px;
     }
-    .cs-speed-row .cs-slider-label { width: 86px; flex-shrink: 0; }
+    .cs-speed-row .cs-slider-label { width: 70px; flex-shrink: 0; }
     .cs-speed-row .cs-seed-btn + .cs-slider-label { width: auto; }
-    .cs-speed-row .cs-speed-pct { width: 32px; flex-shrink: 0; }
+    .cs-speed-row .cs-speed-pct { width: 28px; flex-shrink: 0; }
     .cs-speed-bar {
-      display: flex; gap: 1.5px; height: 12px; cursor: pointer;
+      display: flex; gap: 2px; height: 12px; cursor: pointer;
       user-select: none; flex: 1; min-width: 0;
     }
     .cs-speed-seg {
-      flex: 1; border-radius: 1.5px;
-      transform: skewX(-12deg);
-      background: rgba(255,255,255,0.08);
-      transition: background 0.1s;
+      flex: 1; border-radius: 2px;
+      transform: skewX(-10deg);
+      background: rgba(255,255,255,0.05);
+      transition: background 0.12s;
     }
     .cs-speed-seg.on {
       background: var(--seg-color, rgba(91, 156, 245, 0.7));
     }
     .cs-speed-pct {
-      font-size: 11px; color: rgba(255,255,255,0.30);
+      font-size: 10px; color: rgba(255,255,255,0.28);
       text-align: right; font-variant-numeric: tabular-nums;
     }
     .cs-seed-btn {
-      font: 9px/1 inherit; letter-spacing: 0.06em; text-transform: uppercase;
-      color: rgba(255,255,255,0.35); background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.10); border-radius: 4px;
+      font: 8px/1 inherit; letter-spacing: 0.06em; text-transform: uppercase;
+      color: rgba(255,255,255,0.30); background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07); border-radius: 6px;
       padding: 3px 6px; cursor: pointer; white-space: nowrap;
-      transition: color 0.12s, background 0.12s, border-color 0.12s;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
     }
     .cs-seed-btn:hover {
       color: rgba(255,255,255,0.7); background: rgba(91,156,245,0.12);
@@ -169,40 +200,40 @@ function injectStyles() {
     .cs-dual-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px;
+      gap: 5px;
     }
     .cs-dual-cell {
       display: grid;
-      grid-template-columns: auto 1fr 28px;
-      align-items: center; gap: 4px;
+      grid-template-columns: auto 1fr 24px;
+      align-items: center; gap: 3px;
     }
-    .cs-dual-cell .cs-slider-label { font-size: 10px; min-width: 0; }
-    .cs-dual-cell .cs-slider-val { font-size: 10px; }
+    .cs-dual-cell .cs-slider-label { font-size: 9px; min-width: 0; }
+    .cs-dual-cell .cs-slider-val { font-size: 9px; }
 
     /* Position pad — rectangular XY control for radial/sweep center */
     .cs-pos-pad {
-      width: 100px; height: 64px; flex-shrink: 0;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(0,0,0,0.3);
+      width: 88px; height: 56px; flex-shrink: 0;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0,0,0,0.22);
       position: relative; cursor: crosshair;
       overflow: hidden;
     }
     .cs-pos-crosshair {
-      position: absolute; background: rgba(255,255,255,0.06);
+      position: absolute; background: rgba(255,255,255,0.05);
     }
     .cs-pos-crosshair-h { width: 100%; height: 1px; top: 50%; left: 0; }
     .cs-pos-crosshair-v { height: 100%; width: 1px; left: 50%; top: 0; }
     .cs-pos-dot {
-      width: 8px; height: 8px; border-radius: 50%;
+      width: 7px; height: 7px; border-radius: 50%;
       background: #5b9cf5; position: absolute;
       transform: translate(-50%, -50%);
       pointer-events: none;
-      box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
+      box-shadow: 0 0 6px rgba(91, 156, 245, 0.30);
     }
     .cs-pos-corner {
-      width: 4px; height: 4px; border-radius: 50%;
-      background: rgba(255,255,255,0.12);
+      width: 3px; height: 3px; border-radius: 50%;
+      background: rgba(255,255,255,0.10);
       position: absolute; pointer-events: none;
     }
 
@@ -212,9 +243,9 @@ function injectStyles() {
       grid-template-columns: repeat(3, 1fr);
       grid-template-rows: repeat(3, 1fr);
       width: 100%; aspect-ratio: 3 / 2;
-      border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(0, 0, 0, 0.25);
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(0, 0, 0, 0.18);
       overflow: hidden;
     }
     .cs-origin-cell {
@@ -252,206 +283,225 @@ function injectStyles() {
 
     /* Tilt pad — circular XY control */
     .cs-tilt-wrap {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
     }
     .cs-tilt-pad {
-      width: 64px; height: 64px; flex-shrink: 0;
+      width: 54px; height: 54px; flex-shrink: 0;
       border-radius: 50%;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(0,0,0,0.22);
       position: relative; cursor: crosshair;
       overflow: hidden;
     }
     .cs-tilt-crosshair {
-      position: absolute; background: rgba(255,255,255,0.06);
+      position: absolute; background: rgba(255,255,255,0.05);
     }
     .cs-tilt-crosshair-h { width: 100%; height: 1px; top: 50%; left: 0; }
     .cs-tilt-crosshair-v { height: 100%; width: 1px; left: 50%; top: 0; }
     .cs-tilt-dot {
-      width: 8px; height: 8px; border-radius: 50%;
+      width: 7px; height: 7px; border-radius: 50%;
       background: #5b9cf5; position: absolute;
       transform: translate(-50%, -50%);
       pointer-events: none;
-      box-shadow: 0 0 8px rgba(91, 156, 245, 0.35);
+      box-shadow: 0 0 6px rgba(91, 156, 245, 0.30);
     }
     .cs-tilt-labels {
-      display: flex; flex-direction: column; gap: 2px;
-      font-size: 10px; color: rgba(255,255,255,0.35);
+      display: flex; flex-direction: column; gap: 1px;
+      font-size: 9px; color: rgba(255,255,255,0.30);
       font-variant-numeric: tabular-nums;
     }
-    .cs-tilt-labels span { color: rgba(255,255,255,0.30); }
+    .cs-tilt-labels span { color: rgba(255,255,255,0.25); }
 
     /* Field row (label + pills) */
-    .cs-field-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .cs-field-label { font-size: 11px; color: rgba(255,255,255,0.50); }
+    .cs-field-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+    .cs-field-label { font-size: 10px; color: rgba(255,255,255,0.42); }
 
     /* Pills */
-    .cs-pills { display: flex; gap: 3px; flex-wrap: wrap; }
+    .cs-pills { display: flex; gap: 2px; flex-wrap: wrap; }
     .cs-pill {
-      padding: 2px 7px; border-radius: 6px;
-      font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
-      cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);
-      background: transparent; color: rgba(255,255,255,0.30);
+      padding: 2px 7px; border-radius: 8px;
+      font-size: 9px; font-weight: 600; letter-spacing: 0.05em;
+      cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.03); color: rgba(255,255,255,0.28);
       transition: all 0.15s; text-transform: uppercase;
     }
-    .cs-pill.active { background: rgba(91, 156, 245, 0.15); color: #5b9cf5; border-color: rgba(91, 156, 245, 0.35); }
-    .cs-pill:hover:not(.active) { background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.50); }
+    .cs-pill.active { background: rgba(91, 156, 245, 0.14); color: #5b9cf5; border-color: rgba(91, 156, 245, 0.28); }
+    .cs-pill:hover:not(.active) { background: rgba(255, 255, 255, 0.04); color: rgba(255,255,255,0.45); }
 
-    /* Geometry tabs */
-    .cs-tabs { display: flex; gap: 4px; margin-top: 6px; margin-bottom: 2px; }
+    /* ── Motion tabs (primary mode selector) ──────────────────────────── */
+    .cs-tabs { display: flex; gap: 3px; flex: 1; }
     .cs-tab {
-      flex: 1; padding: 5px 0; border-radius: 6px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      flex: 1; padding: 4px 0; border-radius: 16px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.07em;
       cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.30);
-      transition: all 0.15s; text-transform: uppercase; text-align: center;
+      background: transparent; color: rgba(255,255,255,0.32);
+      transition: all 0.18s ease; text-transform: uppercase; text-align: center;
     }
-    .cs-tab.active { background: rgba(91, 156, 245, 0.15); color: #5b9cf5; border-color: rgba(91, 156, 245, 0.35); }
-    .cs-tab:hover:not(.active) { background: rgba(255, 255, 255, 0.05); }
+    .cs-tab:hover:not(.active) { background: rgba(255, 255, 255, 0.03); color: rgba(255,255,255,0.48); }
+    /* Radial — violet */
+    .cs-tab.tab-radial.active { background: rgba(167, 139, 250, 0.22); color: #fff; border-color: rgba(167, 139, 250, 0.45); }
+    /* Linear — teal */
+    .cs-tab.tab-linear.active { background: rgba(94, 234, 212, 0.20); color: #fff; border-color: rgba(94, 234, 212, 0.40); }
+    /* Metaball — amber */
+    .cs-tab.tab-metaball.active { background: rgba(251, 191, 36, 0.20); color: #fff; border-color: rgba(251, 191, 36, 0.40); }
+    /* Generic active (geometry tabs) */
+    .cs-tab.active:not(.tab-radial):not(.tab-linear):not(.tab-metaball) { background: rgba(91, 156, 245, 0.18); color: #fff; border-color: rgba(91, 156, 245, 0.35); }
+
+    /* ── Motion type chips (secondary sub-type) ───────────────────────── */
+    .cs-chips { display: flex; gap: 3px; flex-wrap: wrap; }
+    .cs-chip {
+      padding: 2px 8px; border-radius: 10px;
+      font-size: 9px; font-weight: 600; letter-spacing: 0.05em;
+      cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.08);
+      background: transparent; color: rgba(255,255,255,0.28);
+      transition: all 0.15s; text-transform: uppercase;
+    }
+    .cs-chip.active { background: rgba(255, 255, 255, 0.08); color: rgba(255,255,255,0.82); border-color: rgba(255, 255, 255, 0.22); }
+    .cs-chip:hover:not(.active) { background: rgba(255, 255, 255, 0.03); color: rgba(255,255,255,0.42); }
 
     /* Advanced toggle */
     .cs-adv-toggle {
-      display: flex; align-items: center; gap: 6px;
+      display: flex; align-items: center; gap: 5px;
       margin-top: 2px; cursor: pointer; user-select: none;
     }
-    .cs-adv-line { flex: 1; height: 1px; background: rgba(255, 255, 255, 0.08); }
-    .cs-adv-label { font-size: 9px; color: rgba(255,255,255,0.30); letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; }
-    .cs-adv-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .cs-adv-line { flex: 1; height: 1px; background: rgba(255, 255, 255, 0.04); }
+    .cs-adv-label { font-size: 8px; color: rgba(255,255,255,0.22); letter-spacing: 0.10em; text-transform: uppercase; white-space: nowrap; }
+    .cs-adv-body { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
     .cs-adv-body.hidden { display: none; }
 
     /* Compact gradient preview */
     /* Color palette — single row: 2 main + separator + 4 extras */
     .cs-palette-row {
-      display: flex; gap: 5px; align-items: center;
+      display: flex; gap: 4px; align-items: center;
     }
     .cs-palette-sep {
-      width: 1px; height: 18px; background: rgba(255,255,255,0.10);
-      margin: 0 2px; flex-shrink: 0;
+      width: 1px; height: 16px; background: rgba(255,255,255,0.08);
+      margin: 0 1px; flex-shrink: 0;
     }
     .cs-palette-swatch {
-      width: 22px; height: 22px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.18);
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.15);
       cursor: pointer; position: relative;
       transition: opacity 0.15s, border-color 0.15s, transform 0.12s;
       box-sizing: border-box; flex-shrink: 0;
     }
-    .cs-palette-swatch.main { width: 26px; height: 26px; border-color: rgba(255,255,255,0.30); }
-    .cs-palette-swatch:hover { transform: scale(1.12); border-color: rgba(255,255,255,0.45); }
-    .cs-palette-swatch.disabled { opacity: 0.28; border-style: dashed; }
-    .cs-palette-swatch.disabled:hover { opacity: 0.45; }
+    .cs-palette-swatch.main { width: 24px; height: 24px; border-color: rgba(255,255,255,0.25); }
+    .cs-palette-swatch:hover { transform: scale(1.12); border-color: rgba(255,255,255,0.40); }
+    .cs-palette-swatch.disabled { opacity: 0.25; border-style: dashed; }
+    .cs-palette-swatch.disabled:hover { opacity: 0.40; }
     .cs-palette-toggle {
       position: absolute; bottom: -3px; right: -3px;
-      width: 10px; height: 10px; border-radius: 50%;
+      width: 9px; height: 9px; border-radius: 50%;
       background: rgba(12, 13, 18, 0.9);
-      border: 1.5px solid rgba(255,255,255,0.25);
+      border: 1.5px solid rgba(255,255,255,0.22);
       cursor: pointer; display: flex; align-items: center; justify-content: center;
-      font-size: 6px; color: rgba(255,255,255,0.6); line-height: 1;
+      font-size: 5px; color: rgba(255,255,255,0.5); line-height: 1;
       transition: background 0.12s, border-color 0.12s;
       box-sizing: border-box;
     }
     .cs-palette-toggle:hover { border-color: rgba(91, 156, 245, 0.6); }
-    .cs-palette-toggle.off { color: rgba(255,255,255,0.25); }
+    .cs-palette-toggle.off { color: rgba(255,255,255,0.20); }
     .cs-palette-swatch input[type="color"] {
       position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;
     }
 
     /* Color input row */
-    .cs-color-row { display: grid; grid-template-columns: 86px 1fr; align-items: center; gap: 7px; }
+    .cs-color-row { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 6px; }
     .cs-color-input {
-      width: 100%; height: 22px; border-radius: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer;
+      width: 100%; height: 20px; border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.05); cursor: pointer;
       padding: 0; background: none;
     }
 
     /* Knob */
     .cs-pad-row {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; align-items: center; gap: 8px;
     }
 
     /* Knob */
     .cs-knob-pair {
       display: flex; justify-content: center; gap: 0;
-      padding: 4px 0 2px;
+      padding: 2px 0 1px;
     }
     .cs-knob-row {
       display: flex; flex-direction: column; align-items: center;
-      gap: 2px; width: 52px; flex-shrink: 0;
+      gap: 1px; width: 46px; flex-shrink: 0;
     }
     .cs-knob-label {
-      font-size: 8px; font-weight: 600; letter-spacing: 0.08em;
-      color: rgba(255, 255, 255, 0.30); text-transform: uppercase;
+      font-size: 7px; font-weight: 600; letter-spacing: 0.07em;
+      color: rgba(255, 255, 255, 0.28); text-transform: uppercase;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      max-width: 52px; text-align: center;
+      max-width: 46px; text-align: center;
     }
     .cs-knob-wrap {
-      position: relative; width: 36px; height: 36px;
+      position: relative; width: 32px; height: 32px;
       cursor: grab;
     }
     .cs-knob-wrap:active { cursor: grabbing; }
     .cs-knob-svg { width: 100%; height: 100%; }
     .cs-knob-val {
-      font-size: 9px; font-weight: 500; color: rgba(255, 255, 255, 0.45);
+      font-size: 8px; font-weight: 500; color: rgba(255, 255, 255, 0.38);
       font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
     }
 
     /* Export */
-    .cs-btn-row { display: flex; gap: 5px; }
+    .cs-btn-row { display: flex; gap: 4px; }
     .cs-export-btn {
-      flex: 1; padding: 6px 0; border-radius: 6px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      flex: 1; padding: 5px 0; border-radius: 8px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.07em;
       cursor: pointer; text-transform: uppercase; transition: all 0.15s;
       font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
     .cs-export-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-    .cs-btn-video { background: rgba(91, 156, 245, 0.12); border: 1px solid rgba(91, 156, 245, 0.30); color: #5b9cf5; }
-    .cs-btn-video:hover:not(:disabled) { background: rgba(91, 156, 245, 0.22); }
-    .cs-btn-png { background: rgba(91, 156, 245, 0.06); border: 1px solid rgba(91, 156, 245, 0.18); color: rgba(91, 156, 245, 0.70); }
-    .cs-btn-png:hover:not(:disabled) { background: rgba(91, 156, 245, 0.15); }
+    .cs-btn-video { background: rgba(91, 156, 245, 0.10); border: 1px solid rgba(91, 156, 245, 0.22); color: #5b9cf5; }
+    .cs-btn-video:hover:not(:disabled) { background: rgba(91, 156, 245, 0.20); box-shadow: 0 0 8px rgba(91, 156, 245, 0.08); }
+    .cs-btn-png { background: rgba(91, 156, 245, 0.05); border: 1px solid rgba(91, 156, 245, 0.12); color: rgba(91, 156, 245, 0.65); }
+    .cs-btn-png:hover:not(:disabled) { background: rgba(91, 156, 245, 0.12); }
     .cs-btn-snap {
-      width: 100%; padding: 6px 0; border-radius: 6px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-      background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
-      color: rgba(255,255,255,0.30); cursor: pointer; margin-bottom: 5px;
+      width: 100%; padding: 5px 0; border-radius: 8px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05);
+      color: rgba(255,255,255,0.28); cursor: pointer; margin-bottom: 4px;
       transition: all 0.15s;
       font-family: 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     }
-    .cs-btn-snap:hover { background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.50); }
-    .cs-progress-wrap { display: flex; flex-direction: column; gap: 3px; }
-    .cs-progress-bar { width: 100%; height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; overflow: hidden; }
-    .cs-progress-fill { height: 100%; width: 0%; background: #5b9cf5; transition: width 0.1s linear; }
-    .cs-progress-lbl { font-size: 9px; color: rgba(255,255,255,0.30); text-align: center; }
-    .cs-divider { height: 1px; background: rgba(255, 255, 255, 0.08); margin: 6px 0; }
+    .cs-btn-snap:hover { background: rgba(255, 255, 255, 0.05); color: rgba(255,255,255,0.45); }
+    .cs-progress-wrap { display: flex; flex-direction: column; gap: 2px; }
+    .cs-progress-bar { width: 100%; height: 2px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+    .cs-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #5b9cf5, #8bb8f8); border-radius: 2px; transition: width 0.1s linear; }
+    .cs-progress-lbl { font-size: 8px; color: rgba(255,255,255,0.28); text-align: center; }
+    .cs-divider { height: 1px; background: rgba(255, 255, 255, 0.04); margin: 4px 0; }
 
     /* Preset circles */
     .cs-presets {
       position: fixed; top: 42px; left: 42px; z-index: 100;
-      display: flex; gap: 8px; align-items: center;
+      display: flex; gap: 6px; align-items: center;
     }
     .cs-preset {
-      width: 28px; height: 28px; border-radius: 6px;
-      border: 1.5px solid rgba(255, 255, 255, 0.10);
-      cursor: pointer; transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+      width: 26px; height: 26px; border-radius: 8px;
+      border: 1.5px solid rgba(255, 255, 255, 0.07);
+      cursor: pointer; transition: border-color 0.18s, transform 0.15s, box-shadow 0.18s;
       background: rgba(255,255,255,0.03);
       position: relative; overflow: hidden;
       flex-shrink: 0;
     }
-    .cs-preset:hover { border-color: rgba(91, 156, 245, 0.5); transform: scale(1.06); }
-    .cs-preset.empty { border-style: dashed; border-color: rgba(255, 255, 255, 0.10); }
+    .cs-preset:hover { border-color: rgba(91, 156, 245, 0.45); transform: scale(1.06); }
+    .cs-preset.empty { border-style: dashed; border-color: rgba(255, 255, 255, 0.08); }
     .cs-preset.empty::after {
       content: '+'; position: absolute; inset: 0;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; color: rgba(255,255,255,0.20); font-weight: 600;
+      font-size: 12px; color: rgba(255,255,255,0.18); font-weight: 600;
     }
     .cs-preset-tooltip {
       position: fixed; z-index: 200;
       background: rgba(12, 13, 18, 0.95);
       backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 6px; padding: 5px 9px;
+      border-radius: 10px; padding: 5px 10px;
       font: 10px/1.4 'Inter', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       color: rgba(255,255,255,0.50);
       white-space: nowrap; pointer-events: none;
-      opacity: 0; transition: opacity 0.12s;
+      opacity: 0; transition: opacity 0.15s;
     }
     .cs-preset-tooltip.visible { opacity: 1; }
 
@@ -627,7 +677,20 @@ export function createControls(uniforms, exportPNG, exportVideo, getLoopDuration
   panel.appendChild(buildRenderingSection(uniforms))
   panel.appendChild(buildExportSection(exportPNG, exportVideo, getLoopDuration, snapshot, setAspectRatio, exportDimensions))
 
-  document.body.appendChild(panel)
+  const wrap = document.createElement('div')
+  wrap.className = 'cs-panel-wrap'
+  wrap.appendChild(panel)
+
+  function updateFades() {
+    const top = panel.scrollTop
+    const bottom = panel.scrollHeight - panel.clientHeight - top
+    wrap.classList.toggle('fade-top', top > 8)
+    wrap.classList.toggle('fade-bottom', bottom > 8)
+  }
+  panel.addEventListener('scroll', updateFades, { passive: true })
+  requestAnimationFrame(updateFades)
+
+  document.body.appendChild(wrap)
   document.body.appendChild(buildPresets(uniforms))
 }
 
@@ -802,16 +865,16 @@ function buildHeader(togglePause, onRandomize) {
   el.innerHTML = `<span class="cs-title">COOL SHADEZ</span>`
 
   const btnWrap = document.createElement('div')
-  btnWrap.style.cssText = 'display:flex;gap:5px;'
+  btnWrap.className = 'cs-header-btns'
 
   const diceBtn = document.createElement('button')
-  diceBtn.className = 'cs-pause-btn'
+  diceBtn.className = 'cs-header-btn'
   diceBtn.textContent = '\uD83C\uDFB2'
   diceBtn.title = 'Randomize'
   diceBtn.addEventListener('click', onRandomize)
 
   const pauseBtn = document.createElement('button')
-  pauseBtn.className = 'cs-pause-btn'
+  pauseBtn.className = 'cs-header-btn'
   pauseBtn.textContent = '⏸'
   pauseBtn.addEventListener('click', () => { pauseBtn.textContent = togglePause() ? '▶' : '⏸' })
 
@@ -1583,7 +1646,7 @@ function buildGradientLayerSub(label, u, layerKey) {
     modeLbl.textContent = 'Motion'
 
     const pills = document.createElement('div')
-    pills.className = 'cs-pills'
+    pills.className = 'cs-tabs'
 
     // Build mode-specific rows first (syncMode references them)
     const dirRow = makeSlider('direction°', 0, 360,
@@ -1603,13 +1666,13 @@ function buildGradientLayerSub(label, u, layerKey) {
     motionLbl.className = 'cs-field-label'
     motionLbl.textContent = 'Type'
     const motionPills = document.createElement('div')
-    motionPills.className = 'cs-pills'
+    motionPills.className = 'cs-chips'
 
     const slidePill = document.createElement('button')
-    slidePill.className = 'cs-pill'
+    slidePill.className = 'cs-chip'
     slidePill.textContent = 'Slide'
     const clothPill = document.createElement('button')
-    clothPill.className = 'cs-pill'
+    clothPill.className = 'cs-chip'
     clothPill.textContent = 'Cloth'
     // Slide-specific: band count
     const countRow = makeSlider('count', 0.5, 10, u.uLinearCount.value, 0.1,
@@ -1843,16 +1906,16 @@ function buildGradientLayerSub(label, u, layerKey) {
     radialTypeLbl.className = 'cs-field-label'
     radialTypeLbl.textContent = 'Type'
     const radialTypePills = document.createElement('div')
-    radialTypePills.className = 'cs-pills'
+    radialTypePills.className = 'cs-chips'
 
     const radialStd_ = document.createElement('button')
-    radialStd_.className = 'cs-pill'
+    radialStd_.className = 'cs-chip'
     radialStd_.textContent = 'Standard'
     const radialSweep_ = document.createElement('button')
-    radialSweep_.className = 'cs-pill'
+    radialSweep_.className = 'cs-chip'
     radialSweep_.textContent = 'Sweep'
     const radialHypnotic_ = document.createElement('button')
-    radialHypnotic_.className = 'cs-pill'
+    radialHypnotic_.className = 'cs-chip'
     radialHypnotic_.textContent = 'Hypnotic'
 
     function syncRadialType() {
@@ -1898,7 +1961,7 @@ function buildGradientLayerSub(label, u, layerKey) {
     }
 
     const radial_ = document.createElement('button')
-    radial_.className = 'cs-pill'
+    radial_.className = 'cs-tab tab-radial'
     radial_.textContent = 'Radial'
     radial_.addEventListener('click', () => {
       const cur = u.uMode.value
@@ -1908,12 +1971,12 @@ function buildGradientLayerSub(label, u, layerKey) {
     })
 
     const linear_ = document.createElement('button')
-    linear_.className = 'cs-pill'
+    linear_.className = 'cs-tab tab-linear'
     linear_.textContent = 'Linear'
     linear_.addEventListener('click', () => { u.uMode.value = 1; syncMode() })
 
     const metaball_ = document.createElement('button')
-    metaball_.className = 'cs-pill'
+    metaball_.className = 'cs-tab tab-metaball'
     metaball_.textContent = 'Metaball'
     metaball_.addEventListener('click', () => { u.uMode.value = 4; syncMode() })
 

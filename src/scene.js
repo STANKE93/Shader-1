@@ -46,12 +46,12 @@ export function createScene(canvas) {
   let aspectRatio = null  // null = free (fill available space), else numeric w/h
 
   function resizeCanvas() {
-    const containerW = window.innerWidth - 30 - 284
-    const containerH = window.innerHeight - 60
+    const containerW = window.innerWidth - 12 - 353
+    const containerH = window.innerHeight - 24
     let w, h, left, top
 
     if (aspectRatio === null) {
-      w = containerW; h = containerH; left = 30; top = 30
+      w = containerW; h = containerH; left = 12; top = 12
     } else {
       if (containerW / containerH > aspectRatio) {
         h = containerH
@@ -60,8 +60,8 @@ export function createScene(canvas) {
         w = containerW
         h = Math.round(w / aspectRatio)
       }
-      left = 30 + Math.round((containerW - w) / 2)
-      top  = 30 + Math.round((containerH - h) / 2)
+      left = 12 + Math.round((containerW - w) / 2)
+      top  = 12 + Math.round((containerH - h) / 2)
     }
 
     canvas.style.width  = w + 'px'
