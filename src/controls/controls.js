@@ -2273,6 +2273,7 @@ function buildGeometrySection(uniforms) {
       const globeGroup = document.createElement('div')
       globeGroup.style.cssText = 'display:none;flex-direction:column;gap:8px;'
       globeGroup.appendChild(makeSlider('radius', 0.05, 0.5, ub.uGlobeRadius.value, 0.01, v => { ub.uGlobeRadius.value = v }))
+      globeGroup.appendChild(makeSlider('squareness', 0, 1, ub.uGlobeSquareness.value, 0.01, v => { ub.uGlobeSquareness.value = v }))
       globeGroup.appendChild(makeSlider('edge softness', 0, 1, ub.uGlobeEdge.value, 0.01, v => { ub.uGlobeEdge.value = v }))
       const globePad = makePositionPad(ub.uBurstCenterX, ub.uBurstCenterY)
       globeGroup.appendChild(globePad)

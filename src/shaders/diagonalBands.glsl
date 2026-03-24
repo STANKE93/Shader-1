@@ -42,11 +42,49 @@ uniform vec3      uFresnelColor;  // tint color for Fresnel rim light
 uniform float     uAtmoGlow;      // atmospheric glow intensity (0..1)
 uniform vec3      uAtmoColor;     // atmospheric glow color
 uniform float     uGlobeEdge;     // edge softness (0 = sharp, 1 = very soft)
+uniform float     uGlobeSquareness; // 0 = circle, 1 = rounded square (superellipse)
 
 varying vec2 vUv;
 
 // Surface steepness — artistic constant
 const float STEEPNESS = 0.13;
+
+// Superellipse distance: n=2 is circle, n→∞ is square.
+// uGlobeSquareness maps 0..1 → exponent 2..20
+float superDist(vec2 d, float squareness) {
+  float n = mix(2.0, 20.0, squareness);
+  vec2 a = abs(d);
+  return pow(pow(a.x, n) + pow(a.y, n), 1.0 / n);
+}
+
+// Superellipse surface normal for a dome whose cross-section is a superellipse.
+// Returns (Nx, Ny, Nz) where XY follows the superellipse gradient and Z is the dome height.
+vec3 superNormal(vec2 d, float radius, float squareness) {
+  float n = mix(2.0, 20.0, squareness);
+  vec2 p = d / radius;
+  float sd = superDist(d, squareness) / radius; // normalized superellipse distance
+  sd = min(sd, 0.999);
+
+  // Dome height: Z based on superellipse distance (like sqrt(1-sd²) but for squircle)
+  float Nz = sqrt(1.0 - sd * sd);
+
+  // Gradient of superellipse: df/dx = sign(x)*|x|^(n-1) / f^(n-1)
+  // This gives the direction perpendicular to the superellipse contour
+  vec2 a = abs(p);
+  float f = max(pow(pow(a.x, n) + pow(a.y, n), 1.0 / n), 0.001);
+  float fn1 = pow(f, n - 1.0);
+  // Partial derivatives of the superellipse distance w.r.t. x and y
+  vec2 grad = sign(p) * vec2(
+    pow(a.x + 0.0001, n - 1.0),
+    pow(a.y + 0.0001, n - 1.0)
+  ) / fn1;
+
+  // Scale gradient by dome slope: -dZ/d(sd) = sd / sqrt(1 - sd²)
+  float slope = sd / max(Nz, 0.05);
+  vec2 Nxy = grad * slope;
+
+  return normalize(vec3(Nxy, max(Nz, 0.05)));
+}
 
 // Simple 2D value noise for band distortion
 float hash21(vec2 p) {
@@ -350,7 +388,8 @@ void main() {
 
     vec2  center = vec2(uBurstCenterX, uBurstCenterY);
     vec2  delta  = vUv - center;
-    float dist   = length(delta);
+    // Shape distance: superellipse morphs circle → rounded square
+    float dist   = superDist(delta, uGlobeSquareness);
     float r      = max(uGlobeRadius, 0.01);
     float nd     = dist / r;
 
@@ -394,21 +433,23 @@ void main() {
           offset = vec2(cos(angle), sin(angle)) * blurSpread;
         }
         vec2 sampleDelta = delta + offset;
-        float sampleDist = length(sampleDelta);
+        float sampleDist = superDist(sampleDelta, uGlobeSquareness);
         float sampleNd = sampleDist / r;
 
         // Weight: center tap strongest, outer taps fall off
         float w = (i == 0) ? 2.0 : 1.0;
 
         if (sampleNd < 1.0) {
-          // This tap is inside the globe — compute glass
-          vec2  sNxy = sampleDelta / r;
-          float sNz  = sqrt(1.0 - sampleNd * sampleNd);
+          // Surface normal from superellipse dome — follows squircle contour
+          vec3 baseN = superNormal(sampleDelta, r, uGlobeSquareness);
+          float sNz = baseN.z;
 
+          // Apply tilt on top of the superellipse normal
+          vec2 sNxy = sampleDelta / r;
           float sTiltX = uTilt  * sNxy.x * 2.0;
           float sTiltY = uTilt2 * sNxy.y * 2.0;
           float sTiltZ = sNz + uTiltZ * sampleNd;
-          vec3 sN = normalize(vec3(sNxy.x + sTiltX, sNxy.y + sTiltY, max(sTiltZ, 0.05)));
+          vec3 sN = normalize(vec3(baseN.x + sTiltX, baseN.y + sTiltY, max(sTiltZ, 0.05)));
 
           float sThick = mix(1.0, sNz, uThickness);
           float sFade  = smoothstep(1.0, 1.0 - softWidth, sampleNd);

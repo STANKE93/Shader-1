@@ -274,6 +274,7 @@ export function createScene(canvas) {
     uPrismDepth:      { value: 0.6 },
     // Globe mode
     uGlobeRadius:     { value: 0.35 },
+    uGlobeSquareness: { value: 0.0 },
     uGlobeEdge:       { value: 0.3 },
     uFresnelColor:    { value: new THREE.Vector3(0.6, 0.8, 1.0) },
     uAtmoGlow:        { value: 0.5 },
